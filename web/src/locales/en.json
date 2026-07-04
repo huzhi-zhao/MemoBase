@@ -846,5 +846,31 @@
     "select-visibility": "Visibility",
     "tags": "Tags",
     "upload-attachment": "Upload Attachment(s)"
+  },
+  "notebook": {
+    "select-workspace": "Select workspace",
+    "new-workspace": "New workspace",
+    "rename-workspace": "Rename workspace",
+    "delete-workspace-confirm": "Delete this workspace? It must be empty.",
+    "workspace-title-placeholder": "Workspace name",
+    "go-to-bookshelf": "Go to bookshelf",
+    "search-documents": "Search documents",
+    "new-document": "New document",
+    "new-folder": "New folder",
+    "upload-file": "Upload file",
+    "no-documents": "No documents",
+    "show-archived-only": "Show archived only",
+    "tags": "Tags",
+    "tags-unavailable": "Tag filtering for the document tree is coming soon.",
+    "document-title-placeholder": "Document title",
+    "folder-name-placeholder": "Folder name",
+    "delete-folder-confirm": "Delete this folder? It must be empty.",
+    "preview": "Preview",
+    "edit": "Edit",
+    "outline": "Outline",
+    "toggle-outline": "Toggle outline",
+    "unarchive": "Unarchive",
+    "select-a-document": "Select a document to get started",
+    "no-headings": "No headings"
   }
 }

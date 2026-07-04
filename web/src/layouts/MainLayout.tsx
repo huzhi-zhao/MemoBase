@@ -21,7 +21,10 @@ const MainLayout = () => {
   const location = useLocation();
   const currentUser = useCurrentUser();
   const [profileUserName, setProfileUserName] = useState<string | undefined>();
-  const showMemoExplorer = location.pathname !== Routes.ABOUT;
+  // The Notebook page ("/") owns its own secondary sidebar (workspace tree) and
+  // full-bleed two-pane layout, so it opts out of the generic MemoExplorer chrome.
+  const isNotebook = location.pathname === Routes.HOME;
+  const showMemoExplorer = location.pathname !== Routes.ABOUT && !isNotebook;
 
   // Determine context based on current route
   const context: MemoExplorerContext = useMemo(() => {
@@ -65,8 +68,15 @@ const MainLayout = () => {
     return undefined;
   }, [context, currentUser, profileUserName]);
 
-  const { statistics, tags } = useFilteredMemoStats({ userName: statsUserName, context });
-  const memoExplorerProps = { context, statisticsData: statistics, tagCount: tags };
+  const { statistics, tags } = useFilteredMemoStats({
+    userName: statsUserName,
+    context,
+  });
+  const memoExplorerProps = {
+    context,
+    statisticsData: statistics,
+    tagCount: tags,
+  };
 
   return (
     <section className="@container w-full min-h-full flex flex-col justify-start items-center md:flex-row md:items-start">
@@ -77,9 +87,13 @@ const MainLayout = () => {
         </div>
       )}
       <div className={MAIN_CONTENT_CLASS_NAME}>
-        <div className={cn("w-full mx-auto px-4 sm:px-6 md:pt-6 pb-8")}>
+        {isNotebook ? (
           <Outlet />
-        </div>
+        ) : (
+          <div className={cn("w-full mx-auto px-4 sm:px-6 md:pt-6 pb-8")}>
+            <Outlet />
+          </div>
+        )}
       </div>
     </section>
   );

@@ -827,5 +827,31 @@
       "description": "这些文件从未附加到任何备忘。可在此查看或删除。",
       "title": "未关联的上传"
     }
+  },
+  "notebook": {
+    "select-workspace": "选择知识库",
+    "new-workspace": "新建知识库",
+    "rename-workspace": "重命名知识库",
+    "delete-workspace-confirm": "确定删除该知识库吗？知识库必须为空。",
+    "workspace-title-placeholder": "知识库名称",
+    "go-to-bookshelf": "前往书架",
+    "search-documents": "搜索文档",
+    "new-document": "新建文档",
+    "new-folder": "新建文件夹",
+    "upload-file": "上传文件",
+    "no-documents": "暂无文档",
+    "show-archived-only": "仅显示已归档",
+    "tags": "标签",
+    "tags-unavailable": "文档树的标签筛选即将上线。",
+    "document-title-placeholder": "文档标题",
+    "folder-name-placeholder": "文件夹名称",
+    "delete-folder-confirm": "确定删除该文件夹吗？文件夹必须为空。",
+    "preview": "预览",
+    "edit": "编辑",
+    "outline": "大纲",
+    "toggle-outline": "切换大纲",
+    "unarchive": "取消归档",
+    "select-a-document": "选择一个文档开始",
+    "no-headings": "暂无标题"
   }
 }

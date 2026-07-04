@@ -29,7 +29,7 @@ const About = lazyWithReload(() => import("@/pages/About"));
 const Archived = lazyWithReload(() => import("@/pages/Archived"));
 const AuthCallback = lazyWithReload(() => import("@/pages/AuthCallback"));
 const Explore = lazyWithReload(() => import("@/pages/Explore"));
-const Home = lazyWithReload(() => import("@/pages/Home"));
+const Notebook = lazyWithReload(() => import("@/pages/Notebook"));
 const Inboxes = lazyWithReload(() => import("@/pages/Inboxes"));
 const MemoDetail = lazyWithReload(() => import("@/pages/MemoDetail"));
 const NotFound = lazyWithReload(() => import("@/pages/NotFound"));
@@ -83,7 +83,7 @@ export const routeConfig: RouteObject[] = [
             children: [
               {
                 element: <LandingRoute />,
-                children: [{ index: true, element: <Home /> }],
+                children: [{ index: true, element: <Notebook /> }],
               },
               { path: Routes.ABOUT, element: <About /> },
               { path: Routes.EXPLORE, element: <Explore /> },

@@ -65,6 +65,16 @@ type Driver interface {
 	UpdateInbox(ctx context.Context, update *UpdateInbox) (*Inbox, error)
 	DeleteInbox(ctx context.Context, delete *DeleteInbox) error
 
+	// Workspace model related methods.
+	CreateWorkspace(ctx context.Context, create *Workspace) (*Workspace, error)
+	ListWorkspaces(ctx context.Context, find *FindWorkspace) ([]*Workspace, error)
+	UpdateWorkspace(ctx context.Context, update *UpdateWorkspace) (*Workspace, error)
+	DeleteWorkspace(ctx context.Context, delete *DeleteWorkspace) error
+	CreateWorkspaceFolder(ctx context.Context, create *WorkspaceFolder) (*WorkspaceFolder, error)
+	ListWorkspaceFolders(ctx context.Context, find *FindWorkspaceFolder) ([]*WorkspaceFolder, error)
+	DeleteWorkspaceFolder(ctx context.Context, delete *DeleteWorkspaceFolder) error
+	RenameWorkspaceFolder(ctx context.Context, workspaceID int32, oldPath, newPath string) error
+
 	// Reaction model related methods.
 	UpsertReaction(ctx context.Context, create *Reaction) (*Reaction, error)
 	ListReactions(ctx context.Context, find *FindReaction) ([]*Reaction, error)

@@ -606,3 +606,77 @@ func (s *ConnectServiceHandler) DeleteIdentityProvider(ctx context.Context, req 
 	}
 	return connect.NewResponse(resp), nil
 }
+
+// WorkspaceService
+
+func (s *ConnectServiceHandler) CreateWorkspace(ctx context.Context, req *connect.Request[v1pb.CreateWorkspaceRequest]) (*connect.Response[v1pb.Workspace], error) {
+	resp, err := s.APIV1Service.CreateWorkspace(ctx, req.Msg)
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (s *ConnectServiceHandler) ListWorkspaces(ctx context.Context, req *connect.Request[v1pb.ListWorkspacesRequest]) (*connect.Response[v1pb.ListWorkspacesResponse], error) {
+	resp, err := s.APIV1Service.ListWorkspaces(ctx, req.Msg)
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (s *ConnectServiceHandler) GetWorkspace(ctx context.Context, req *connect.Request[v1pb.GetWorkspaceRequest]) (*connect.Response[v1pb.Workspace], error) {
+	resp, err := s.APIV1Service.GetWorkspace(ctx, req.Msg)
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (s *ConnectServiceHandler) UpdateWorkspace(ctx context.Context, req *connect.Request[v1pb.UpdateWorkspaceRequest]) (*connect.Response[v1pb.Workspace], error) {
+	resp, err := s.APIV1Service.UpdateWorkspace(ctx, req.Msg)
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (s *ConnectServiceHandler) DeleteWorkspace(ctx context.Context, req *connect.Request[v1pb.DeleteWorkspaceRequest]) (*connect.Response[emptypb.Empty], error) {
+	resp, err := s.APIV1Service.DeleteWorkspace(ctx, req.Msg)
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (s *ConnectServiceHandler) GetWorkspaceTree(ctx context.Context, req *connect.Request[v1pb.GetWorkspaceTreeRequest]) (*connect.Response[v1pb.GetWorkspaceTreeResponse], error) {
+	resp, err := s.APIV1Service.GetWorkspaceTree(ctx, req.Msg)
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (s *ConnectServiceHandler) CreateWorkspaceFolder(ctx context.Context, req *connect.Request[v1pb.CreateWorkspaceFolderRequest]) (*connect.Response[v1pb.WorkspaceFolder], error) {
+	resp, err := s.APIV1Service.CreateWorkspaceFolder(ctx, req.Msg)
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (s *ConnectServiceHandler) RenameWorkspaceFolder(ctx context.Context, req *connect.Request[v1pb.RenameWorkspaceFolderRequest]) (*connect.Response[emptypb.Empty], error) {
+	resp, err := s.APIV1Service.RenameWorkspaceFolder(ctx, req.Msg)
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (s *ConnectServiceHandler) DeleteWorkspaceFolder(ctx context.Context, req *connect.Request[v1pb.DeleteWorkspaceFolderRequest]) (*connect.Response[emptypb.Empty], error) {
+	resp, err := s.APIV1Service.DeleteWorkspaceFolder(ctx, req.Msg)
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return connect.NewResponse(resp), nil
+}

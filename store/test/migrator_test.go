@@ -145,7 +145,8 @@ func TestMigrationCopiesInstanceTagsToUserSettings(t *testing.T) {
 			UNIQUE(user_id, key)
 		);
 		CREATE TABLE memo (
-			id INTEGER PRIMARY KEY AUTOINCREMENT
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			creator_id INTEGER NOT NULL DEFAULT 0
 		);
 	`)
 	require.NoError(t, err)

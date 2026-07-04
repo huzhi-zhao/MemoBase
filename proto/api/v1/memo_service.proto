@@ -268,6 +268,28 @@ message Memo {
   // Optional. The location of the memo.
   optional Location location = 18 [(google.api.field_behavior) = OPTIONAL];
 
+  // The workspace (knowledge base) this memo belongs to.
+  // Format: workspaces/{workspace}
+  // Optional on create: defaults to the caller's default workspace.
+  string workspace = 19 [(google.api.field_behavior) = OPTIONAL];
+
+  // Optional. The slash-separated folder path (relative to the workspace root)
+  // this memo lives under. Empty string means the workspace root.
+  string folder_path = 20 [(google.api.field_behavior) = OPTIONAL];
+
+  // Optional. The document's display title (its "filename"). If unset on
+  // creation, it is derived from the first H1 heading for Markdown documents.
+  string title = 21 [(google.api.field_behavior) = OPTIONAL];
+
+  // Optional. The document type. Defaults to MARKDOWN.
+  DocType doc_type = 22 [(google.api.field_behavior) = OPTIONAL];
+
+  enum DocType {
+    DOC_TYPE_UNSPECIFIED = 0;
+    MARKDOWN = 1;
+    HTML = 2;
+  }
+
   // Computed properties of a memo.
   message Property {
     bool has_link = 1;
@@ -340,6 +362,10 @@ message ListMemosRequest {
 
   // Optional. If true, show deleted memos in the response.
   bool show_deleted = 6 [(google.api.field_behavior) = OPTIONAL];
+
+  // Optional. Restrict results to memos in this workspace.
+  // Format: workspaces/{workspace}
+  string workspace = 7 [(google.api.field_behavior) = OPTIONAL];
 }
 
 message ListMemosResponse {

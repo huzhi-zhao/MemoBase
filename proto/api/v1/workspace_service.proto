@@ -1,0 +1,216 @@
+syntax = "proto3";
+
+package memos.api.v1;
+
+import "google/api/annotations.proto";
+import "google/api/client.proto";
+import "google/api/field_behavior.proto";
+import "google/api/resource.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "gen/api/v1";
+
+service WorkspaceService {
+  // CreateWorkspace creates a new workspace (knowledge base) for the current user.
+  rpc CreateWorkspace(CreateWorkspaceRequest) returns (Workspace) {
+    option (google.api.http) = {
+      post: "/api/v1/workspaces"
+      body: "workspace"
+    };
+    option (google.api.method_signature) = "workspace";
+  }
+  // ListWorkspaces lists all workspaces owned by the current user.
+  rpc ListWorkspaces(ListWorkspacesRequest) returns (ListWorkspacesResponse) {
+    option (google.api.http) = {get: "/api/v1/workspaces"};
+  }
+  // GetWorkspace returns a workspace by name.
+  rpc GetWorkspace(GetWorkspaceRequest) returns (Workspace) {
+    option (google.api.http) = {get: "/api/v1/{name=workspaces/*}"};
+    option (google.api.method_signature) = "name";
+  }
+  // UpdateWorkspace updates a workspace.
+  rpc UpdateWorkspace(UpdateWorkspaceRequest) returns (Workspace) {
+    option (google.api.http) = {
+      patch: "/api/v1/{workspace.name=workspaces/*}"
+      body: "workspace"
+    };
+    option (google.api.method_signature) = "workspace,update_mask";
+  }
+  // DeleteWorkspace deletes a workspace. The workspace must contain no memos.
+  rpc DeleteWorkspace(DeleteWorkspaceRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/api/v1/{name=workspaces/*}"};
+    option (google.api.method_signature) = "name";
+  }
+  // GetWorkspaceTree returns the folder/document hierarchy for a workspace.
+  rpc GetWorkspaceTree(GetWorkspaceTreeRequest) returns (GetWorkspaceTreeResponse) {
+    option (google.api.http) = {get: "/api/v1/{name=workspaces/*}/tree"};
+  }
+  // CreateWorkspaceFolder creates a (possibly empty) folder within a workspace.
+  rpc CreateWorkspaceFolder(CreateWorkspaceFolderRequest) returns (WorkspaceFolder) {
+    option (google.api.http) = {
+      post: "/api/v1/{parent=workspaces/*}/folders"
+      body: "folder"
+    };
+  }
+  // RenameWorkspaceFolder renames a folder and moves all memos/subfolders under it.
+  rpc RenameWorkspaceFolder(RenameWorkspaceFolderRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/api/v1/{parent=workspaces/*}/folders:rename"
+      body: "*"
+    };
+  }
+  // DeleteWorkspaceFolder deletes an empty folder.
+  rpc DeleteWorkspaceFolder(DeleteWorkspaceFolderRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/api/v1/{parent=workspaces/*}/folders:delete"
+      body: "*"
+    };
+  }
+}
+
+message Workspace {
+  option (google.api.resource) = {
+    type: "memos.api.v1/Workspace"
+    pattern: "workspaces/{workspace}"
+    name_field: "name"
+    singular: "workspace"
+    plural: "workspaces"
+  };
+
+  // The resource name of the workspace.
+  // Format: workspaces/{workspace}
+  string name = 1 [(google.api.field_behavior) = IDENTIFIER];
+
+  // Required. The display title of the workspace.
+  string title = 2 [(google.api.field_behavior) = REQUIRED];
+
+  // Output only. The name of the creator.
+  // Format: users/{user}
+  string creator = 3 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // Output only. The creation timestamp.
+  google.protobuf.Timestamp create_time = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // Output only. The last update timestamp.
+  google.protobuf.Timestamp update_time = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+message WorkspaceFolder {
+  // The resource name of the folder.
+  // Format: workspaces/{workspace}/folders/{folder}
+  string name = 1 [(google.api.field_behavior) = IDENTIFIER];
+
+  // Required. The slash-separated path of the folder, relative to the workspace root.
+  string path = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+// A single node (folder or document) in a workspace's hierarchy.
+message WorkspaceTreeNode {
+  enum NodeType {
+    NODE_TYPE_UNSPECIFIED = 0;
+    FOLDER = 1;
+    DOCUMENT = 2;
+  }
+  NodeType type = 1;
+
+  // The display name of this node (folder name, or document title).
+  string name = 2;
+
+  // The full slash-separated path of this node, relative to the workspace root.
+  string path = 3;
+
+  // Set only when type == DOCUMENT. Format: memos/{memo}
+  string memo = 4;
+
+  // Set only when type == DOCUMENT.
+  bool archived = 5;
+
+  // Set only when type == DOCUMENT. One of MARKDOWN, HTML.
+  string doc_type = 6;
+
+  // Set only when type == DOCUMENT.
+  google.protobuf.Timestamp create_time = 7;
+
+  // Children of this node, populated only for FOLDER nodes.
+  repeated WorkspaceTreeNode children = 8;
+}
+
+message CreateWorkspaceRequest {
+  // Required. The workspace to create.
+  Workspace workspace = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message ListWorkspacesRequest {}
+
+message ListWorkspacesResponse {
+  repeated Workspace workspaces = 1;
+}
+
+message GetWorkspaceRequest {
+  // Required. Format: workspaces/{workspace}
+  string name = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.resource_reference) = {type: "memos.api.v1/Workspace"}
+  ];
+}
+
+message UpdateWorkspaceRequest {
+  // Required. The workspace which replaces the workspace on the server.
+  Workspace workspace = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // Required. The list of fields to update.
+  google.protobuf.FieldMask update_mask = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+message DeleteWorkspaceRequest {
+  // Required. Format: workspaces/{workspace}
+  string name = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.resource_reference) = {type: "memos.api.v1/Workspace"}
+  ];
+}
+
+message GetWorkspaceTreeRequest {
+  // Required. Format: workspaces/{workspace}
+  string name = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.resource_reference) = {type: "memos.api.v1/Workspace"}
+  ];
+
+  // Optional. If true, only archived documents are included. If false (default),
+  // only non-archived documents are included.
+  bool archived = 2 [(google.api.field_behavior) = OPTIONAL];
+}
+
+message GetWorkspaceTreeResponse {
+  repeated WorkspaceTreeNode nodes = 1;
+}
+
+message CreateWorkspaceFolderRequest {
+  // Required. Format: workspaces/{workspace}
+  string parent = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // Required. The folder to create.
+  WorkspaceFolder folder = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+message RenameWorkspaceFolderRequest {
+  // Required. Format: workspaces/{workspace}
+  string parent = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // Required. The current folder path.
+  string old_path = 2 [(google.api.field_behavior) = REQUIRED];
+
+  // Required. The new folder path.
+  string new_path = 3 [(google.api.field_behavior) = REQUIRED];
+}
+
+message DeleteWorkspaceFolderRequest {
+  // Required. Format: workspaces/{workspace}
+  string parent = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // Required. The folder path to delete. Must contain no memos or subfolders.
+  string path = 2 [(google.api.field_behavior) = REQUIRED];
+}

@@ -43,6 +43,18 @@ func (s *APIV1Service) convertMemoFromStoreWithCreators(ctx context.Context, mem
 		Content:    memo.Content,
 		Visibility: convertVisibilityFromStore(memo.Visibility),
 		Pinned:     memo.Pinned,
+		FolderPath: memo.FolderPath,
+		Title:      memo.Title,
+		DocType:    convertDocTypeFromStore(memo.DocType),
+	}
+	if memo.WorkspaceID != 0 {
+		workspace, err := s.Store.GetWorkspace(ctx, &store.FindWorkspace{ID: &memo.WorkspaceID})
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get memo workspace")
+		}
+		if workspace != nil {
+			memoMessage.Workspace = WorkspaceNamePrefix + workspace.UID
+		}
 	}
 	if memo.Payload != nil {
 		memoMessage.Tags = memo.Payload.Tags
@@ -345,6 +357,22 @@ func convertLocationToStore(location *v1pb.Location) *storepb.MemoPayload_Locati
 		Latitude:    location.Latitude,
 		Longitude:   location.Longitude,
 	}
+}
+
+func convertDocTypeFromStore(docType string) v1pb.Memo_DocType {
+	switch docType {
+	case "HTML":
+		return v1pb.Memo_HTML
+	default:
+		return v1pb.Memo_MARKDOWN
+	}
+}
+
+func convertDocTypeToStore(docType v1pb.Memo_DocType) string {
+	if docType == v1pb.Memo_HTML {
+		return "HTML"
+	}
+	return "MARKDOWN"
 }
 
 func convertVisibilityFromStore(visibility store.Visibility) v1pb.Visibility {

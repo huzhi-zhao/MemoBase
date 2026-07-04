@@ -84,11 +84,20 @@ func (s *APIV1Service) CreateMemo(ctx context.Context, request *v1pb.CreateMemoR
 		return nil, err
 	}
 
+	workspace, err := s.resolveWorkspaceForMemo(ctx, user.ID, request.Memo.Workspace)
+	if err != nil {
+		return nil, err
+	}
+
 	create := &store.Memo{
-		UID:        memoUID,
-		CreatorID:  user.ID,
-		Content:    request.Memo.Content,
-		Visibility: convertVisibilityToStore(request.Memo.Visibility),
+		UID:         memoUID,
+		CreatorID:   user.ID,
+		Content:     request.Memo.Content,
+		Visibility:  convertVisibilityToStore(request.Memo.Visibility),
+		WorkspaceID: workspace.ID,
+		FolderPath:  normalizeFolderPath(request.Memo.FolderPath),
+		Title:       request.Memo.Title,
+		DocType:     convertDocTypeToStore(request.Memo.DocType),
 	}
 
 	// Set custom timestamps if provided in the request.
@@ -216,6 +225,21 @@ func (s *APIV1Service) ListMemos(ctx context.Context, request *v1pb.ListMemosReq
 			return nil, status.Errorf(codes.InvalidArgument, "invalid filter: %v", err)
 		}
 		memoFind.Filters = append(memoFind.Filters, request.Filter)
+	}
+
+	if request.Workspace != "" {
+		workspaceUID, err := ExtractWorkspaceUIDFromName(request.Workspace)
+		if err != nil {
+			return nil, status.Errorf(codes.InvalidArgument, "invalid workspace name: %v", err)
+		}
+		workspace, err := s.Store.GetWorkspace(ctx, &store.FindWorkspace{UID: &workspaceUID})
+		if err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to get workspace: %v", err)
+		}
+		if workspace == nil {
+			return nil, status.Errorf(codes.NotFound, "workspace not found")
+		}
+		memoFind.WorkspaceID = &workspace.ID
 	}
 
 	if currentUser == nil {
@@ -538,6 +562,20 @@ func (s *APIV1Service) UpdateMemo(ctx context.Context, request *v1pb.UpdateMemoR
 			if err := s.setMemoRelationsInternal(ctx, memo, request.Memo.Relations); err != nil {
 				return nil, errors.Wrap(err, "failed to set memo relations")
 			}
+		} else if path == "folder_path" {
+			folderPath := normalizeFolderPath(request.Memo.FolderPath)
+			update.FolderPath = &folderPath
+		} else if path == "title" {
+			update.Title = &request.Memo.Title
+		} else if path == "doc_type" {
+			docType := convertDocTypeToStore(request.Memo.DocType)
+			update.DocType = &docType
+		} else if path == "workspace" {
+			workspace, err := s.resolveWorkspaceForMemo(ctx, memo.CreatorID, request.Memo.Workspace)
+			if err != nil {
+				return nil, err
+			}
+			update.WorkspaceID = &workspace.ID
 		}
 	}
 

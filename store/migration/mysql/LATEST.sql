@@ -39,7 +39,12 @@ CREATE TABLE `memo` (
   `content` TEXT NOT NULL,
   `visibility` VARCHAR(256) NOT NULL DEFAULT 'PRIVATE',
   `pinned` BOOLEAN NOT NULL DEFAULT FALSE,
-  `payload` JSON NOT NULL
+  `payload` JSON NOT NULL,
+  `workspace_id` INT NOT NULL DEFAULT 0,
+  `folder_path` VARCHAR(512) NOT NULL DEFAULT '',
+  `title` VARCHAR(256) NOT NULL DEFAULT '',
+  `doc_type` VARCHAR(32) NOT NULL DEFAULT 'MARKDOWN',
+  INDEX `idx_memo_workspace_folder` (`workspace_id`, `folder_path`(255))
 );
 
 -- memo_relation
@@ -48,6 +53,25 @@ CREATE TABLE `memo_relation` (
   `related_memo_id` INT NOT NULL,
   `type` VARCHAR(256) NOT NULL,
   UNIQUE(`memo_id`,`related_memo_id`,`type`)
+);
+
+-- workspace
+CREATE TABLE `workspace` (
+  `id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `uid` VARCHAR(256) NOT NULL UNIQUE,
+  `creator_id` INT NOT NULL,
+  `title` VARCHAR(256) NOT NULL,
+  `created_ts` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_ts` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- workspace_folder
+CREATE TABLE `workspace_folder` (
+  `id` INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `workspace_id` INT NOT NULL,
+  `path` VARCHAR(512) NOT NULL,
+  `created_ts` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(`workspace_id`, `path`)
 );
 
 -- attachment

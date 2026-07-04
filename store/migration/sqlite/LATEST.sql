@@ -40,8 +40,13 @@ CREATE TABLE memo (
   content TEXT NOT NULL DEFAULT '',
   visibility TEXT NOT NULL CHECK (visibility IN ('PUBLIC', 'PROTECTED', 'PRIVATE')) DEFAULT 'PRIVATE',
   pinned INTEGER NOT NULL CHECK (pinned IN (0, 1)) DEFAULT 0,
-  payload TEXT NOT NULL DEFAULT '{}'
+  payload TEXT NOT NULL DEFAULT '{}',
+  workspace_id INTEGER NOT NULL DEFAULT 0,
+  folder_path TEXT NOT NULL DEFAULT '',
+  title TEXT NOT NULL DEFAULT '',
+  doc_type TEXT NOT NULL DEFAULT 'MARKDOWN'
 );
+CREATE INDEX idx_memo_workspace_folder ON memo (workspace_id, folder_path);
 
 -- memo_relation
 CREATE TABLE memo_relation (
@@ -49,6 +54,25 @@ CREATE TABLE memo_relation (
   related_memo_id INTEGER NOT NULL,
   type TEXT NOT NULL,
   UNIQUE(memo_id, related_memo_id, type)
+);
+
+-- workspace
+CREATE TABLE workspace (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  uid TEXT NOT NULL UNIQUE,
+  creator_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  created_ts BIGINT NOT NULL DEFAULT (strftime('%s', 'now')),
+  updated_ts BIGINT NOT NULL DEFAULT (strftime('%s', 'now'))
+);
+
+-- workspace_folder
+CREATE TABLE workspace_folder (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  workspace_id INTEGER NOT NULL,
+  path TEXT NOT NULL,
+  created_ts BIGINT NOT NULL DEFAULT (strftime('%s', 'now')),
+  UNIQUE(workspace_id, path)
 );
 
 -- attachment

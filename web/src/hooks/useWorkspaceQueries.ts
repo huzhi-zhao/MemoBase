@@ -1,0 +1,135 @@
+import { create } from "@bufbuild/protobuf";
+import { FieldMaskSchema } from "@bufbuild/protobuf/wkt";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { workspaceServiceClient } from "@/connect";
+import type { Workspace } from "@/types/proto/api/v1/workspace_service_pb";
+import { WorkspaceSchema } from "@/types/proto/api/v1/workspace_service_pb";
+
+export const workspaceKeys = {
+  all: ["workspaces"] as const,
+  lists: () => [...workspaceKeys.all, "list"] as const,
+  tree: (name?: string, archived?: boolean) => [...workspaceKeys.all, "tree", name, archived] as const,
+};
+
+export function useWorkspaces() {
+  return useQuery({
+    queryKey: workspaceKeys.lists(),
+    queryFn: async () => {
+      const { workspaces } = await workspaceServiceClient.listWorkspaces({});
+      return workspaces;
+    },
+  });
+}
+
+export function useWorkspaceTree(name: string | undefined, archived: boolean) {
+  return useQuery({
+    queryKey: workspaceKeys.tree(name, archived),
+    queryFn: async () => {
+      const { nodes } = await workspaceServiceClient.getWorkspaceTree({
+        name: name!,
+        archived,
+      });
+      return nodes;
+    },
+    enabled: !!name,
+  });
+}
+
+export function useCreateWorkspace() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (title: string) => {
+      const workspace = create(WorkspaceSchema, { title });
+      return workspaceServiceClient.createWorkspace({ workspace });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.lists() });
+    },
+  });
+}
+
+export function useUpdateWorkspace() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ workspace, updateMask }: { workspace: Workspace; updateMask: string[] }) => {
+      return workspaceServiceClient.updateWorkspace({
+        workspace,
+        updateMask: create(FieldMaskSchema, { paths: updateMask }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.lists() });
+    },
+  });
+}
+
+export function useDeleteWorkspace() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (name: string) => {
+      await workspaceServiceClient.deleteWorkspace({ name });
+      return name;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.lists() });
+    },
+  });
+}
+
+export function useCreateWorkspaceFolder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ parent, path }: { parent: string; path: string }) => {
+      return workspaceServiceClient.createWorkspaceFolder({
+        parent,
+        folder: { name: "", path },
+      });
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: workspaceKeys.tree(variables.parent, false),
+      });
+      queryClient.invalidateQueries({
+        queryKey: workspaceKeys.tree(variables.parent, true),
+      });
+    },
+  });
+}
+
+export function useRenameWorkspaceFolder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ parent, oldPath, newPath }: { parent: string; oldPath: string; newPath: string }) => {
+      return workspaceServiceClient.renameWorkspaceFolder({
+        parent,
+        oldPath,
+        newPath,
+      });
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: workspaceKeys.tree(variables.parent, false),
+      });
+      queryClient.invalidateQueries({
+        queryKey: workspaceKeys.tree(variables.parent, true),
+      });
+    },
+  });
+}
+
+export function useDeleteWorkspaceFolder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ parent, path }: { parent: string; path: string }) => {
+      return workspaceServiceClient.deleteWorkspaceFolder({ parent, path });
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: workspaceKeys.tree(variables.parent, false),
+      });
+      queryClient.invalidateQueries({
+        queryKey: workspaceKeys.tree(variables.parent, true),
+      });
+    },
+  });
+}

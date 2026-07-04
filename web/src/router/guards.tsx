@@ -5,25 +5,16 @@ import { ROUTES } from "./routes";
 
 /**
  * Index-route gate mounted at `/`. Authenticated visitors fall through to the
- * nested Home page; unauthenticated visitors are redirected to `/explore`,
- * preserving the original query string and hash so bookmarks like `/?filter=foo`
- * keep working.
+ * nested Home page; unauthenticated visitors are redirected to `/auth`, with
+ * the original location preserved so they return to `/` after signing in.
  */
 export const LandingRoute = () => {
   const currentUser = useCurrentUser();
   const location = useLocation();
 
   if (!currentUser) {
-    return (
-      <Navigate
-        to={{
-          pathname: ROUTES.EXPLORE,
-          search: location.search,
-          hash: location.hash,
-        }}
-        replace
-      />
-    );
+    const redirect = `${location.pathname}${location.search}${location.hash}`;
+    return <Navigate to={buildAuthRoute({ redirect })} replace />;
   }
 
   return <Outlet />;

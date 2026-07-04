@@ -1,22 +1,24 @@
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { useTranslate } from "@/utils/i18n";
 import { extractMentionUsernames } from "@/utils/remark-plugins/remark-mention";
 import { COMPACT_MODE_CONFIG, getPreviewMaxHeightPx } from "./constants";
 import { useCompactLabel, useCompactMode } from "./hooks";
+import { HtmlPreviewFrame } from "./HtmlPreviewFrame";
 import { MemoMarkdownRenderer } from "./MemoMarkdownRenderer";
 import { useResolvedMentionUsernames } from "./MentionResolutionContext";
 import type { MemoContentProps } from "./types";
 
 const MemoContent = (props: MemoContentProps) => {
-  const { className, contentClassName, content, onClick, onDoubleClick } = props;
+  const { className, contentClassName, content, isHtml, onClick, onDoubleClick } = props;
   const t = useTranslate();
+  const [htmlPreviewHeight, setHtmlPreviewHeight] = useState(0);
   const {
     containerRef: memoContentContainerRef,
     mode: showCompactMode,
     toggle: toggleCompactMode,
-  } = useCompactMode(Boolean(props.compact), content);
+  } = useCompactMode((Boolean(props.compact) || Boolean(props.autoFold)) && !props.alwaysExpanded, isHtml ? htmlPreviewHeight : content);
   const mentionUsernames = useMemo(() => extractMentionUsernames(content), [content]);
   const resolvedMentionUsernames = useResolvedMentionUsernames(mentionUsernames);
 
@@ -46,12 +48,16 @@ const MemoContent = (props: MemoContentProps) => {
         onMouseUp={onClick}
         onDoubleClick={onDoubleClick}
       >
-        <MemoMarkdownRenderer
-          content={content}
-          resolvedMentionUsernames={resolvedMentionUsernames}
-          memoName={props.memoName}
-          compact={Boolean(props.compact)}
-        />
+        {isHtml ? (
+          <HtmlPreviewFrame content={content} onHeightChange={setHtmlPreviewHeight} />
+        ) : (
+          <MemoMarkdownRenderer
+            content={content}
+            resolvedMentionUsernames={resolvedMentionUsernames}
+            memoName={props.memoName}
+            compact={Boolean(props.compact)}
+          />
+        )}
         {showCompactMode === "ALL" && (
           <div
             className={cn(

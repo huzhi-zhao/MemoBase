@@ -33,10 +33,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
 interface Props {
   collapsed?: boolean;
+  mini?: boolean;
 }
 
 const UserMenu = (props: Props) => {
-  const { collapsed } = props;
+  const { collapsed, mini } = props;
   const t = useTranslate();
   const navigateTo = useNavigateTo();
   const currentUser = useCurrentUser();
@@ -108,9 +109,9 @@ const UserMenu = (props: Props) => {
         <div className={cn("w-auto flex flex-row justify-start items-center cursor-pointer text-foreground", collapsed ? "px-1" : "px-3")}>
           <div className="relative shrink-0">
             {currentUser?.avatarUrl ? (
-              <UserAvatar avatarUrl={currentUser?.avatarUrl} />
+              <UserAvatar className={cn(mini && "w-6 h-6")} avatarUrl={currentUser?.avatarUrl} />
             ) : (
-              <User2Icon className="w-6 mx-auto h-auto text-muted-foreground" />
+              <User2Icon className={cn("mx-auto h-auto text-muted-foreground", mini ? "w-4" : "w-6")} />
             )}
             {sseStatus !== "connected" && (
               <Tooltip>
@@ -127,7 +128,7 @@ const UserMenu = (props: Props) => {
             )}
           </div>
           {!collapsed && (
-            <span className="ml-2 text-lg font-medium text-foreground grow truncate">
+            <span className={cn("font-medium text-foreground grow truncate", mini ? "ml-1.5 text-xs" : "ml-2 text-lg")}>
               {currentUser?.displayName || currentUser?.username}
             </span>
           )}

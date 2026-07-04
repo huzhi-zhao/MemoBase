@@ -61,6 +61,7 @@ export const useMemoFilters = (options: UseMemoFiltersOptions = {}): string | un
     }
 
     // Add active filters from context
+    const selectedVisibilityNames: string[] = [];
     for (const filter of filters) {
       if (filter.factor === "contentSearch") {
         conditions.push(`content.contains(${escapeFilterValue(filter.value)})`);
@@ -77,17 +78,26 @@ export const useMemoFilters = (options: UseMemoFiltersOptions = {}): string | un
       } else if (filter.factor === "property.hasCode") {
         conditions.push(`has_code`);
       } else if (filter.factor === "displayTime") {
-        const filterDate = new Date(filter.value);
-        const filterUtcTimestamp = filterDate.getTime() + filterDate.getTimezoneOffset() * 60 * 1000;
-        const startTimestamp = Math.floor(filterUtcTimestamp / 1000);
+        const [year, month, day] = filter.value.split("-").map(Number);
+        const startTimestamp = Math.floor(new Date(year, month - 1, day).getTime() / 1000);
         const endTimestamp = startTimestamp + 60 * 60 * 24;
 
         conditions.push(`created_ts >= timestamp(${startTimestamp}) && created_ts < timestamp(${endTimestamp})`);
+      } else if (filter.factor === "workspace") {
+        conditions.push(`workspace == ${escapeFilterValue(filter.value)}`);
+      } else if (filter.factor === "visibility") {
+        selectedVisibilityNames.push(filter.value);
       }
+      // "archived" is not a CEL condition; callers read it via getFiltersByFactor
+      // and map it to ListMemosRequest.state instead.
     }
 
-    // Add visibility filter if specified
-    if (visibilities && visibilities.length > 0) {
+    // Add visibility filter: an explicit user selection (e.g. Explore's
+    // multi-select) takes precedence over the caller-provided default.
+    if (selectedVisibilityNames.length > 0) {
+      const visibilityValues = selectedVisibilityNames.map((name) => `"${name}"`).join(", ");
+      conditions.push(`visibility in [${visibilityValues}]`);
+    } else if (visibilities && visibilities.length > 0) {
       const visibilityValues = visibilities.map((v) => `"${getVisibilityName(v)}"`).join(", ");
       conditions.push(`visibility in [${visibilityValues}]`);
     }

@@ -1,5 +1,6 @@
 import type { FC } from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { Location, Visibility } from "@/types/proto/api/v1/memo_service_pb";
 import { useTranslate } from "@/utils/i18n";
 import { validationService } from "../services";
@@ -15,6 +16,7 @@ export const EditorToolbar: FC<EditorToolbarProps> = ({
   onAudioRecorderClick,
   isFormattingToolbarVisible,
   onToggleFormattingToolbar,
+  compact,
 }) => {
   const t = useTranslate();
   const { actions, dispatch } = useEditorContext();
@@ -40,7 +42,7 @@ export const EditorToolbar: FC<EditorToolbarProps> = ({
   };
 
   return (
-    <div className="w-full flex flex-row justify-between items-center mb-2">
+    <div className={cn("w-full flex flex-row justify-between items-center", compact ? "mb-0" : "mb-2")}>
       <div className="flex flex-row justify-start items-center gap-1">
         <InsertMenu
           isUploading={isUploading}

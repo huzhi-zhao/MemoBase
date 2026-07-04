@@ -1,6 +1,7 @@
-import { BookmarkIcon } from "lucide-react";
+import { BookmarkIcon, FileTextIcon, PanelRightCloseIcon, PanelRightOpenIcon } from "lucide-react";
 import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useNewMemo } from "@/contexts/NewMemoContext";
 import useNavigateTo from "@/hooks/useNavigateTo";
@@ -18,7 +19,7 @@ import { useMemoActions } from "../hooks";
 import { useMemoViewContext, useMemoViewDerived } from "../MemoViewContext";
 import type { MemoHeaderProps } from "../types";
 
-const MemoHeader: React.FC<MemoHeaderProps> = ({ showCreator, showVisibility, showPinned }) => {
+const MemoHeader: React.FC<MemoHeaderProps> = ({ showCreator, showVisibility, showPinned, compact, sidebarCollapsed, onToggleSidebar }) => {
   const t = useTranslate();
   const [reactionSelectorOpen, setReactionSelectorOpen] = useState(false);
 
@@ -56,7 +57,15 @@ const MemoHeader: React.FC<MemoHeaderProps> = ({ showCreator, showVisibility, sh
   return (
     <div className="w-full flex flex-row justify-between items-center gap-2">
       <div className="w-auto max-w-[calc(100%-8rem)] grow flex flex-row justify-start items-center">
-        {showCreator && creator ? (
+        {memo.title ? (
+          <TitleDisplay
+            title={memo.title}
+            creator={showCreator ? creator : undefined}
+            displayTime={displayTime}
+            timeTooltip={timeTooltip}
+            onGotoDetail={handleGotoMemoDetailPage}
+          />
+        ) : showCreator && creator ? (
           <CreatorDisplay creator={creator} displayTime={displayTime} timeTooltip={timeTooltip} onGotoDetail={handleGotoMemoDetailPage} />
         ) : (
           <TimeDisplay displayTime={displayTime} timeTooltip={timeTooltip} onGotoDetail={handleGotoMemoDetailPage} />
@@ -90,6 +99,12 @@ const MemoHeader: React.FC<MemoHeaderProps> = ({ showCreator, showVisibility, sh
           </Tooltip>
         )}
 
+        {compact === false && onToggleSidebar && (
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onToggleSidebar} title={t("memo.toggle-sidebar")}>
+            {sidebarCollapsed ? <PanelRightOpenIcon className="w-4 h-4" /> : <PanelRightCloseIcon className="w-4 h-4" />}
+          </Button>
+        )}
+
         {showPinned && memo.pinned && (
           <TooltipProvider>
             <Tooltip>
@@ -110,6 +125,35 @@ const MemoHeader: React.FC<MemoHeaderProps> = ({ showCreator, showVisibility, sh
     </div>
   );
 };
+
+interface TitleDisplayProps {
+  title: string;
+  creator?: User;
+  displayTime: React.ReactNode;
+  timeTooltip: TimeTooltipContent;
+  onGotoDetail: () => void;
+}
+
+const TitleDisplay: React.FC<TitleDisplayProps> = ({ title, creator, displayTime, timeTooltip, onGotoDetail }) => (
+  <div className="w-full flex flex-row justify-between items-center gap-2 min-w-0">
+    <div className="flex flex-row items-center gap-1.5 min-w-0">
+      <FileTextIcon className="w-4 h-4 shrink-0 text-muted-foreground" />
+      <span className="font-medium truncate">{title}</span>
+    </div>
+    {creator && (
+      <div className="flex flex-row items-center gap-1.5 shrink-0 text-xs text-muted-foreground">
+        <Link className="hover:opacity-80 rounded-md transition-colors" to={`/u/${encodeURIComponent(creator.username)}`} viewTransition>
+          {creator.displayName || creator.username}
+        </Link>
+        <TimeTooltip content={timeTooltip}>
+          <span className="cursor-pointer hover:opacity-80 transition-colors" onClick={onGotoDetail}>
+            {displayTime}
+          </span>
+        </TimeTooltip>
+      </div>
+    )}
+  </div>
+);
 
 interface CreatorDisplayProps {
   creator: User;

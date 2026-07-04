@@ -1,6 +1,6 @@
 import { AttachmentListView, LocationDisplayView, RelationListView } from "@/components/MemoMetadata";
 import { cn } from "@/lib/utils";
-import { MemoRelation_Type } from "@/types/proto/api/v1/memo_service_pb";
+import { Memo_DocType, MemoRelation_Type } from "@/types/proto/api/v1/memo_service_pb";
 import { useTranslate } from "@/utils/i18n";
 import MemoContent from "../../MemoContent";
 import { MemoReactionListView } from "../../MemoReactionListView";
@@ -19,7 +19,7 @@ const BlurOverlay: React.FC<{ onClick?: () => void }> = ({ onClick }) => {
   );
 };
 
-const MemoBody: React.FC<MemoBodyProps> = ({ compact }) => {
+const MemoBody: React.FC<MemoBodyProps> = ({ compact, autoFold }) => {
   const { memo, parentPage, showBlurredContent, blurred, readonly, openEditor, openPreview, toggleBlurVisibility } = useMemoViewContext();
 
   const { handleMemoContentClick, handleMemoContentDoubleClick } = useMemoHandlers({ readonly, openEditor, openPreview });
@@ -38,9 +38,12 @@ const MemoBody: React.FC<MemoBodyProps> = ({ compact }) => {
           key={memo.name}
           memoName={memo.name}
           content={memo.content}
+          isHtml={memo.docType === Memo_DocType.HTML}
           onClick={handleMemoContentClick}
           onDoubleClick={handleMemoContentDoubleClick}
           compact={memo.pinned ? false : compact} // Always show full content when pinned
+          autoFold={autoFold}
+          alwaysExpanded={memo.pinned}
         />
         <AttachmentListView attachments={memo.attachments} onImagePreview={openPreview} />
         <RelationListView relations={referencedMemos} currentMemoName={memo.name} parentPage={parentPage} />

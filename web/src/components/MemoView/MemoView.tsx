@@ -17,7 +17,18 @@ import { computeCommentAmount, MemoViewContext } from "./MemoViewContext";
 import type { MemoViewProps } from "./types";
 
 const MemoView: React.FC<MemoViewProps> = (props: MemoViewProps) => {
-  const { memo: memoData, className, parentPage: parentPageProp, compact, showCreator, showVisibility, showPinned } = props;
+  const {
+    memo: memoData,
+    className,
+    parentPage: parentPageProp,
+    compact,
+    autoFold,
+    showCreator,
+    showVisibility,
+    showPinned,
+    sidebarCollapsed,
+    onToggleSidebar,
+  } = props;
   const cardRef = useRef<HTMLDivElement>(null);
   const [showEditor, setShowEditor] = useState(false);
   const [cardWidth, setCardWidth] = useState(0);
@@ -121,9 +132,16 @@ const MemoView: React.FC<MemoViewProps> = (props: MemoViewProps) => {
       ref={cardRef}
       tabIndex={readonly ? -1 : 0}
     >
-      <MemoHeader showCreator={showCreator} showVisibility={showVisibility} showPinned={showPinned} />
+      <MemoHeader
+        showCreator={showCreator}
+        showVisibility={showVisibility}
+        showPinned={showPinned}
+        compact={compact}
+        sidebarCollapsed={sidebarCollapsed}
+        onToggleSidebar={onToggleSidebar}
+      />
 
-      <MemoBody compact={compact} />
+      <MemoBody compact={compact} autoFold={autoFold} />
 
       <PreviewImageDialog
         open={previewState.open}

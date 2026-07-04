@@ -39,8 +39,13 @@ CREATE TABLE memo (
   content TEXT NOT NULL,
   visibility TEXT NOT NULL DEFAULT 'PRIVATE',
   pinned BOOLEAN NOT NULL DEFAULT FALSE,
-  payload JSONB NOT NULL DEFAULT '{}'
+  payload JSONB NOT NULL DEFAULT '{}',
+  workspace_id INTEGER NOT NULL DEFAULT 0,
+  folder_path TEXT NOT NULL DEFAULT '',
+  title TEXT NOT NULL DEFAULT '',
+  doc_type TEXT NOT NULL DEFAULT 'MARKDOWN'
 );
+CREATE UNIQUE INDEX idx_memo_workspace_folder_title ON memo (workspace_id, folder_path, title);
 
 -- memo_relation
 CREATE TABLE memo_relation (
@@ -48,6 +53,25 @@ CREATE TABLE memo_relation (
   related_memo_id INTEGER NOT NULL,
   type TEXT NOT NULL,
   UNIQUE(memo_id, related_memo_id, type)
+);
+
+-- workspace
+CREATE TABLE workspace (
+  id SERIAL PRIMARY KEY,
+  uid TEXT NOT NULL UNIQUE,
+  creator_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  created_ts BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW()),
+  updated_ts BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW())
+);
+
+-- workspace_folder
+CREATE TABLE workspace_folder (
+  id SERIAL PRIMARY KEY,
+  workspace_id INTEGER NOT NULL,
+  path TEXT NOT NULL,
+  created_ts BIGINT NOT NULL DEFAULT EXTRACT(EPOCH FROM NOW()),
+  UNIQUE(workspace_id, path)
 );
 
 -- attachment

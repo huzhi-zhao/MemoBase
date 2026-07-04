@@ -23,6 +23,7 @@ const (
 	InboxNamePrefix            = "inboxes/"
 	IdentityProviderNamePrefix = "identity-providers/"
 	WebhookNamePrefix          = "webhooks/"
+	WorkspaceNamePrefix        = "workspaces/"
 )
 
 // GetNameParentTokens returns the tokens from a resource name.
@@ -124,6 +125,16 @@ func ExtractInboxIDFromName(name string) (int32, error) {
 		return 0, errors.Errorf("invalid inbox ID %q", tokens[0])
 	}
 	return id, nil
+}
+
+// ExtractWorkspaceUIDFromName returns the workspace UID from a resource name.
+// e.g., "workspaces/abc" -> "abc".
+func ExtractWorkspaceUIDFromName(name string) (string, error) {
+	tokens, err := GetNameParentTokens(name, WorkspaceNamePrefix)
+	if err != nil {
+		return "", err
+	}
+	return tokens[0], nil
 }
 
 func ExtractIdentityProviderUIDFromName(name string) (string, error) {

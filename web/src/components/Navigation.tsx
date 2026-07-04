@@ -1,12 +1,15 @@
-import { BellIcon, EarthIcon, InfoIcon, LibraryIcon, PaperclipIcon, UserCircleIcon } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { BellIcon, CalendarDaysIcon, InfoIcon, LibraryBigIcon, PaperclipIcon, UserCircleIcon } from "lucide-react";
+import { NavLink, useLocation } from "react-router-dom";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import useCurrentUser from "@/hooks/useCurrentUser";
+import useNotebookSidebarCollapsed from "@/hooks/useNotebookSidebarCollapsed";
+import useSidebarMode from "@/hooks/useSidebarMode";
 import { useNotifications } from "@/hooks/useUserQueries";
 import { cn } from "@/lib/utils";
 import { Routes } from "@/router";
 import { UserNotification_Status } from "@/types/proto/api/v1/user_service_pb";
 import { useTranslate } from "@/utils/i18n";
+import { toggleNotebookSidebarCollapsed } from "@/utils/notebookSidebar";
 import MemosLogo from "./MemosLogo";
 import UserMenu from "./UserMenu";
 
@@ -27,30 +30,36 @@ const Navigation = (props: Props) => {
   const t = useTranslate();
   const currentUser = useCurrentUser();
   const { data: notifications = [] } = useNotifications();
+  const location = useLocation();
+  const isHome = location.pathname === Routes.HOME;
+  const notebookSidebarCollapsed = useNotebookSidebarCollapsed();
+  const sidebarMode = useSidebarMode();
+  const isMini = sidebarMode === "mini";
+  const iconSizeClass = isMini ? "w-4 h-auto shrink-0" : "w-6 h-auto shrink-0";
 
-  const homeNavLink: NavLinkItem = {
-    id: "header-memos",
-    path: Routes.HOME,
-    title: t("common.memos"),
-    icon: <LibraryIcon className="w-6 h-auto shrink-0" />,
+  const shelfNavLink: NavLinkItem = {
+    id: "header-shelf",
+    path: Routes.SHELF,
+    title: t("bookshelf.title"),
+    icon: <LibraryBigIcon className={iconSizeClass} />,
   };
   const exploreNavLink: NavLinkItem = {
     id: "header-explore",
     path: Routes.EXPLORE,
     title: t("common.explore"),
-    icon: <EarthIcon className="w-6 h-auto shrink-0" />,
+    icon: <CalendarDaysIcon className={iconSizeClass} />,
   };
   const aboutNavLink: NavLinkItem = {
     id: "header-about",
     path: Routes.ABOUT,
     title: t("common.about"),
-    icon: <InfoIcon className="w-6 h-auto shrink-0" />,
+    icon: <InfoIcon className={iconSizeClass} />,
   };
   const attachmentsNavLink: NavLinkItem = {
     id: "header-attachments",
     path: Routes.ATTACHMENTS,
     title: t("common.attachments"),
-    icon: <PaperclipIcon className="w-6 h-auto shrink-0" />,
+    icon: <PaperclipIcon className={iconSizeClass} />,
   };
   const unreadCount = notifications.filter((n) => n.status === UserNotification_Status.UNREAD).length;
   const inboxNavLink: NavLinkItem = {
@@ -59,9 +68,14 @@ const Navigation = (props: Props) => {
     title: t("common.inbox"),
     icon: (
       <div className="relative">
-        <BellIcon className="w-6 h-auto shrink-0" />
+        <BellIcon className={iconSizeClass} />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 flex items-center justify-center bg-primary text-primary-foreground text-[10px] font-semibold rounded-full border-2 border-background">
+          <span
+            className={cn(
+              "absolute -top-1 -right-1 flex items-center justify-center bg-primary text-primary-foreground font-semibold rounded-full border-2 border-background",
+              isMini ? "min-w-[14px] h-[14px] px-0.5 text-[8px]" : "min-w-[18px] h-[18px] px-1 text-[10px]",
+            )}
+          >
             {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
@@ -72,27 +86,39 @@ const Navigation = (props: Props) => {
     id: "header-auth",
     path: Routes.AUTH,
     title: t("common.sign-in"),
-    icon: <UserCircleIcon className="w-6 h-auto shrink-0" />,
+    icon: <UserCircleIcon className={iconSizeClass} />,
   };
 
   const primaryNavLinks: NavLinkItem[] = currentUser
-    ? [homeNavLink, exploreNavLink, attachmentsNavLink, inboxNavLink]
+    ? [shelfNavLink, exploreNavLink, attachmentsNavLink, inboxNavLink]
     : [exploreNavLink, aboutNavLink, signInNavLink];
   const inboxAriaLabel = unreadCount > 0 ? `${t("common.inbox")}, ${unreadCount} unread` : t("common.inbox");
 
   return (
     <header className={cn("w-full h-full overflow-auto flex flex-col justify-between items-start gap-4", className)}>
       <div className="w-full px-1 py-1 flex flex-col justify-start items-start space-y-2 overflow-auto overflow-x-hidden shrink">
-        <NavLink className="mb-3 cursor-default" to={currentUser ? Routes.HOME : Routes.EXPLORE}>
-          <MemosLogo collapsed={collapsed} />
-        </NavLink>
+        {isHome ? (
+          <button
+            type="button"
+            className="mb-3 cursor-pointer"
+            onClick={toggleNotebookSidebarCollapsed}
+            title={t(notebookSidebarCollapsed ? "notebook.expand-sidebar" : "notebook.collapse-sidebar")}
+          >
+            <MemosLogo collapsed={collapsed} mini={isMini} />
+          </button>
+        ) : (
+          <NavLink className="mb-3 cursor-default" to={currentUser ? Routes.HOME : Routes.EXPLORE}>
+            <MemosLogo collapsed={collapsed} mini={isMini} />
+          </NavLink>
+        )}
         <TooltipProvider>
           {primaryNavLinks.map((navLink) => (
             <NavLink
               className={({ isActive }) =>
                 cn(
-                  "px-2 py-2 rounded-2xl border flex flex-row items-center text-lg text-sidebar-foreground transition-colors",
-                  collapsed ? "" : "w-full px-4",
+                  "rounded-2xl border flex flex-row items-center text-sidebar-foreground transition-colors",
+                  isMini ? "px-1.5 py-1.5 text-xs" : "px-2 py-2 text-lg",
+                  collapsed ? "" : cn("w-full", isMini ? "px-2" : "px-4"),
                   isActive
                     ? "bg-sidebar-accent text-sidebar-accent-foreground border-sidebar-accent-border drop-shadow"
                     : "border-transparent hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:border-sidebar-accent-border opacity-80",
@@ -117,14 +143,14 @@ const Navigation = (props: Props) => {
               ) : (
                 navLink.icon
               )}
-              {!props.collapsed && <span className="ml-3 truncate">{navLink.title}</span>}
+              {!props.collapsed && <span className={cn("truncate", isMini ? "ml-2" : "ml-3")}>{navLink.title}</span>}
             </NavLink>
           ))}
         </TooltipProvider>
       </div>
       {currentUser && (
         <div className={cn("w-full flex flex-col justify-end", props.collapsed ? "items-center" : "items-start pl-3")}>
-          <UserMenu collapsed={collapsed} />
+          <UserMenu collapsed={collapsed} mini={isMini} />
         </div>
       )}
     </header>

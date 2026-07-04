@@ -27,9 +27,10 @@ function lazyWithReload<T extends React.ComponentType>(factory: () => Promise<{ 
 const AdminSignIn = lazyWithReload(() => import("@/pages/AdminSignIn"));
 const About = lazyWithReload(() => import("@/pages/About"));
 const Archived = lazyWithReload(() => import("@/pages/Archived"));
+const Bookshelf = lazyWithReload(() => import("@/pages/Bookshelf"));
 const AuthCallback = lazyWithReload(() => import("@/pages/AuthCallback"));
 const Explore = lazyWithReload(() => import("@/pages/Explore"));
-const Home = lazyWithReload(() => import("@/pages/Home"));
+const Notebook = lazyWithReload(() => import("@/pages/Notebook"));
 const Inboxes = lazyWithReload(() => import("@/pages/Inboxes"));
 const MemoDetail = lazyWithReload(() => import("@/pages/MemoDetail"));
 const NotFound = lazyWithReload(() => import("@/pages/NotFound"));
@@ -83,7 +84,7 @@ export const routeConfig: RouteObject[] = [
             children: [
               {
                 element: <LandingRoute />,
-                children: [{ index: true, element: <Home /> }],
+                children: [{ index: true, element: <Notebook /> }],
               },
               { path: Routes.ABOUT, element: <About /> },
               { path: Routes.EXPLORE, element: <Explore /> },
@@ -92,6 +93,7 @@ export const routeConfig: RouteObject[] = [
                 element: <RequireAuthRoute />,
                 children: [
                   { path: Routes.ARCHIVED, element: <Archived /> },
+                  { path: Routes.SHELF, element: <Bookshelf /> },
                   { path: Routes.SHORTCUTS, element: <Shortcuts /> },
                 ],
               },

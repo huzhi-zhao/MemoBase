@@ -21,7 +21,13 @@ const MainLayout = () => {
   const location = useLocation();
   const currentUser = useCurrentUser();
   const [profileUserName, setProfileUserName] = useState<string | undefined>();
-  const showMemoExplorer = location.pathname !== Routes.ABOUT;
+  // The Notebook page ("/") owns its own secondary sidebar (workspace tree) and
+  // full-bleed two-pane layout, so it opts out of the generic MemoExplorer chrome.
+  const isNotebook = location.pathname === Routes.HOME;
+  // The Bookshelf page ("/shelf") is a standalone gallery with no filters, so it
+  // doesn't need the MemoExplorer sidebar either.
+  const isBookshelf = location.pathname === Routes.SHELF;
+  const showMemoExplorer = location.pathname !== Routes.ABOUT && !isNotebook && !isBookshelf;
 
   // Determine context based on current route
   const context: MemoExplorerContext = useMemo(() => {
@@ -65,21 +71,32 @@ const MainLayout = () => {
     return undefined;
   }, [context, currentUser, profileUserName]);
 
-  const { statistics, tags } = useFilteredMemoStats({ userName: statsUserName, context });
-  const memoExplorerProps = { context, statisticsData: statistics, tagCount: tags };
+  const { statistics, tags } = useFilteredMemoStats({
+    userName: statsUserName,
+    context,
+  });
+  const memoExplorerProps = {
+    context,
+    statisticsData: statistics,
+    tagCount: tags,
+  };
 
   return (
     <section className="@container w-full min-h-full flex flex-col justify-start items-center md:flex-row md:items-start">
       {!md && <MobileHeader>{showMemoExplorer && <MemoExplorerDrawer {...memoExplorerProps} />}</MobileHeader>}
       {md && showMemoExplorer && (
         <div className={DESKTOP_EXPLORER_CLASS_NAME}>
-          <MemoExplorer className="px-3 py-6" {...memoExplorerProps} />
+          <MemoExplorer className="px-3 py-3" {...memoExplorerProps} />
         </div>
       )}
       <div className={MAIN_CONTENT_CLASS_NAME}>
-        <div className={cn("w-full mx-auto px-4 sm:px-6 md:pt-6 pb-8")}>
+        {isNotebook ? (
           <Outlet />
-        </div>
+        ) : (
+          <div className={cn("w-full mx-auto px-4 sm:px-6 md:pt-6 pb-8")}>
+            <Outlet />
+          </div>
+        )}
       </div>
     </section>
   );

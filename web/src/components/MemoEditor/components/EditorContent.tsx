@@ -16,7 +16,7 @@ import type { EditorController } from "../types/editorController";
  * editor serializes into state.content on every change and exposes its
  * formatting capability for the focus-mode toolbar.
  */
-export const EditorContent = forwardRef<EditorController, EditorContentProps>(({ placeholder }, ref) => {
+export const EditorContent = forwardRef<EditorController, EditorContentProps>(({ placeholder, expand }, ref) => {
   const { actions, dispatch } = useEditorContext();
   const { createBlobUrl } = useBlobUrls();
   const content = useEditorSelector((s) => s.content);
@@ -62,13 +62,14 @@ export const EditorContent = forwardRef<EditorController, EditorContentProps>(({
   };
 
   return (
-    <div className="w-full flex flex-col flex-1" {...dragHandlers}>
+    <div className="w-full flex flex-col flex-1 min-h-0" {...dragHandlers}>
       <Editor
         ref={ref}
         className="memo-editor-content"
         initialContent={content}
         placeholder={placeholder || ""}
         isFocusMode={isFocusMode}
+        expand={expand}
         onContentChange={handleContentChange}
         onPaste={handlePaste}
       />

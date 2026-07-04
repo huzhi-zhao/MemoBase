@@ -436,6 +436,7 @@ message UserSetting {
     GeneralSetting general_setting = 2;
     WebhooksSetting webhooks_setting = 5;
     TagsSetting tags_setting = 6;
+    LastOpenedSetting last_opened_setting = 7;
   }
 
   // Enumeration of user setting keys.
@@ -447,6 +448,8 @@ message UserSetting {
     WEBHOOKS = 4;
     // TAGS is the key for per-user tag metadata.
     TAGS = 5;
+    // LAST_OPENED is the key for the last workspace/document opened in the Notebook home page.
+    LAST_OPENED = 6;
   }
 
   // General user settings configuration.
@@ -481,6 +484,14 @@ message UserSetting {
   message WebhooksSetting {
     // List of user webhooks.
     repeated UserWebhook webhooks = 1;
+  }
+
+  // The last workspace/document the user had open in the Notebook home page.
+  message LastOpenedSetting {
+    // The workspace resource name last opened. Format: workspaces/{workspace}
+    string workspace = 1 [(google.api.field_behavior) = OPTIONAL];
+    // The memo resource name last opened. Format: memos/{memo}
+    string memo = 2 [(google.api.field_behavior) = OPTIONAL];
   }
 }
 

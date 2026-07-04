@@ -1,4 +1,10 @@
 {
+  "explore": {
+    "all-projects": "All projects",
+    "all-visibilities": "All",
+    "filter-by-visibility": "Visibility",
+    "show-archived-only": "Show archived only"
+  },
   "about": {
     "blogs": "Blogs",
     "description": "A privacy-first, lightweight note-taking service. Easily capture and share your great thoughts.",
@@ -252,6 +258,7 @@
     "copy-content": "Copy Content",
     "copy-link": "Copy Link",
     "count-memos-in-date": "{{count}} {{memos}} in {{date}}",
+    "toggle-sidebar": "Toggle sidebar",
     "count-memos-updated-in-date": "{{count}} {{memos}} updated on {{date}}",
     "delete-confirm": "Are you sure you want to delete this memo?",
     "delete-confirm-description": "This action is irreversible. Attachments, links, and references will also be removed.",
@@ -589,6 +596,8 @@
       "language-description": "Updates the interface language immediately and saves it to your account.",
       "memo-defaults-description": "Set the defaults used when composing new memos.",
       "memo-defaults-title": "Memo defaults",
+      "mini-menu": "Mini menu",
+      "mini-menu-description": "Shrinks sidebar icons and text for a more compact layout on this device.",
       "theme-description": "Applies the selected theme immediately on this device.",
       "theme": "Theme"
     },
@@ -846,5 +855,43 @@
     "select-visibility": "Visibility",
     "tags": "Tags",
     "upload-attachment": "Upload Attachment(s)"
+  },
+  "notebook": {
+    "collapse-sidebar": "Collapse sidebar",
+    "expand-sidebar": "Expand sidebar",
+    "select-workspace": "Select workspace",
+    "new-workspace": "New workspace",
+    "rename-workspace": "Rename workspace",
+    "delete-workspace-confirm": "Delete this workspace? It must be empty.",
+    "workspace-title-placeholder": "Workspace name",
+    "go-to-bookshelf": "Go to bookshelf",
+    "search-documents": "Search documents",
+    "new-document": "New document",
+    "new-folder": "New folder",
+    "upload-file": "Upload file",
+    "no-documents": "No documents",
+    "show-archived-only": "Show archived only",
+    "tags": "Tags",
+    "tags-unavailable": "Tag filtering for the document tree is coming soon.",
+    "document-title-placeholder": "Document title",
+    "folder-name-placeholder": "Folder name",
+    "delete-folder-confirm": "Delete this folder? It must be empty.",
+    "preview": "Preview",
+    "edit": "Edit",
+    "outline": "Outline",
+    "toggle-outline": "Toggle outline",
+    "unarchive": "Unarchive",
+    "select-a-document": "Select a document to get started",
+    "no-headings": "No headings",
+    "move-document": "Move document",
+    "move": "Move",
+    "destination-workspace": "Destination workspace",
+    "destination-folder": "Destination folder",
+    "workspace-root": "(workspace root)"
+  },
+  "bookshelf": {
+    "title": "Bookshelf",
+    "new-workspace": "New workspace",
+    "created-at": "Created {{date}}"
   }
 }

@@ -14,8 +14,8 @@ import (
 )
 
 func (d *DB) CreateMemo(ctx context.Context, create *store.Memo) (*store.Memo, error) {
-	fields := []string{"`uid`", "`creator_id`", "`content`", "`visibility`", "`payload`"}
-	placeholder := []string{"?", "?", "?", "?", "?"}
+	fields := []string{"`uid`", "`creator_id`", "`content`", "`visibility`", "`payload`", "`workspace_id`", "`folder_path`", "`title`", "`doc_type`"}
+	placeholder := []string{"?", "?", "?", "?", "?", "?", "?", "?", "?"}
 	payload := "{}"
 	if create.Payload != nil {
 		payloadBytes, err := protojson.Marshal(create.Payload)
@@ -24,7 +24,11 @@ func (d *DB) CreateMemo(ctx context.Context, create *store.Memo) (*store.Memo, e
 		}
 		payload = string(payloadBytes)
 	}
-	args := []any{create.UID, create.CreatorID, create.Content, create.Visibility, payload}
+	docType := create.DocType
+	if docType == "" {
+		docType = "MARKDOWN"
+	}
+	args := []any{create.UID, create.CreatorID, create.Content, create.Visibility, payload, create.WorkspaceID, create.FolderPath, create.Title, docType}
 
 	// Add custom timestamps if provided
 	if create.CreatedTs != 0 {
@@ -112,6 +116,13 @@ func (d *DB) ListMemos(ctx context.Context, find *store.FindMemo) ([]*store.Memo
 	if find.ExcludeComments {
 		having = append(having, "`parent_uid` IS NULL")
 	}
+	if v := find.WorkspaceID; v != nil {
+		where, args = append(where, "`memo`.`workspace_id` = ?"), append(args, *v)
+	}
+	if v := find.FolderPathPrefix; v != nil {
+		where = append(where, "(`memo`.`folder_path` = ? OR `memo`.`folder_path` LIKE ?)")
+		args = append(args, *v, *v+"/%")
+	}
 
 	order := "DESC"
 	if find.OrderByTimeAsc {
@@ -138,6 +149,10 @@ func (d *DB) ListMemos(ctx context.Context, find *store.FindMemo) ([]*store.Memo
 		"`memo`.`visibility` AS `visibility`",
 		"`memo`.`pinned` AS `pinned`",
 		"`memo`.`payload` AS `payload`",
+		"`memo`.`workspace_id` AS `workspace_id`",
+		"`memo`.`folder_path` AS `folder_path`",
+		"`memo`.`title` AS `title`",
+		"`memo`.`doc_type` AS `doc_type`",
 		"CASE WHEN `parent_memo`.`uid` IS NOT NULL THEN `parent_memo`.`uid` ELSE NULL END AS `parent_uid`",
 	}
 	if !find.ExcludeContent {
@@ -146,6 +161,7 @@ func (d *DB) ListMemos(ctx context.Context, find *store.FindMemo) ([]*store.Memo
 
 	query := "SELECT " + strings.Join(fields, ", ") + " FROM `memo`" + " " +
 		"LEFT JOIN `user` AS `memo_creator` ON `memo`.`creator_id` = `memo_creator`.`id`" + " " +
+		"LEFT JOIN `workspace` AS `memo_workspace` ON `memo`.`workspace_id` = `memo_workspace`.`id`" + " " +
 		"LEFT JOIN `memo_relation` ON `memo`.`id` = `memo_relation`.`memo_id` AND `memo_relation`.`type` = 'COMMENT'" + " " +
 		"LEFT JOIN `memo` AS `parent_memo` ON `memo_relation`.`related_memo_id` = `parent_memo`.`id`" + " " +
 		"WHERE " + strings.Join(where, " AND ") + " " +
@@ -178,6 +194,10 @@ func (d *DB) ListMemos(ctx context.Context, find *store.FindMemo) ([]*store.Memo
 			&memo.Visibility,
 			&memo.Pinned,
 			&payloadBytes,
+			&memo.WorkspaceID,
+			&memo.FolderPath,
+			&memo.Title,
+			&memo.DocType,
 			&memo.ParentUID,
 		}
 		if !find.ExcludeContent {
@@ -243,6 +263,18 @@ func (d *DB) UpdateMemo(ctx context.Context, update *store.UpdateMemo) error {
 			return err
 		}
 		set, args = append(set, "`payload` = ?"), append(args, string(payloadBytes))
+	}
+	if v := update.WorkspaceID; v != nil {
+		set, args = append(set, "`workspace_id` = ?"), append(args, *v)
+	}
+	if v := update.FolderPath; v != nil {
+		set, args = append(set, "`folder_path` = ?"), append(args, *v)
+	}
+	if v := update.Title; v != nil {
+		set, args = append(set, "`title` = ?"), append(args, *v)
+	}
+	if v := update.DocType; v != nil {
+		set, args = append(set, "`doc_type` = ?"), append(args, *v)
 	}
 	if len(set) == 0 {
 		return nil

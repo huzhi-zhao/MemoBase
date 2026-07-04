@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { COMPACT_STATES, getCompactTriggerHeightPx, shouldCompactContent } from "./constants";
 import type { ContentCompactView } from "./types";
 
-export const useCompactMode = (enabled: boolean, revision: string) => {
+export const useCompactMode = (enabled: boolean, revision: string | number) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<ContentCompactView | undefined>(undefined);
 

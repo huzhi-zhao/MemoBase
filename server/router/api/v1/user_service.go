@@ -676,6 +676,17 @@ func (s *APIV1Service) UpdateUserSetting(ctx context.Context, request *v1pb.Upda
 				TagsSetting: incomingTags,
 			},
 		}
+	case storepb.UserSetting_LAST_OPENED:
+		incomingLastOpened := request.Setting.GetLastOpenedSetting()
+		if incomingLastOpened == nil {
+			return nil, status.Errorf(codes.InvalidArgument, "last_opened setting is required")
+		}
+		updatedSetting = &v1pb.UserSetting{
+			Name: request.Setting.Name,
+			Value: &v1pb.UserSetting_LastOpenedSetting_{
+				LastOpenedSetting: incomingLastOpened,
+			},
+		}
 	default:
 		return nil, status.Errorf(codes.InvalidArgument, "setting type %s should not be updated via UpdateUserSetting", storeKey.String())
 	}
@@ -1394,6 +1405,8 @@ func convertSettingKeyToStore(key string) (storepb.UserSetting_Key, error) {
 		return storepb.UserSetting_WEBHOOKS, nil
 	case v1pb.UserSetting_Key_name[int32(v1pb.UserSetting_TAGS)]:
 		return storepb.UserSetting_TAGS, nil
+	case v1pb.UserSetting_Key_name[int32(v1pb.UserSetting_LAST_OPENED)]:
+		return storepb.UserSetting_LAST_OPENED, nil
 	default:
 		return storepb.UserSetting_KEY_UNSPECIFIED, errors.Errorf("unknown setting key: %s", key)
 	}
@@ -1410,6 +1423,8 @@ func convertSettingKeyFromStore(key storepb.UserSetting_Key) string {
 		return v1pb.UserSetting_Key_name[int32(v1pb.UserSetting_WEBHOOKS)]
 	case storepb.UserSetting_TAGS:
 		return v1pb.UserSetting_Key_name[int32(v1pb.UserSetting_TAGS)]
+	case storepb.UserSetting_LAST_OPENED:
+		return v1pb.UserSetting_Key_name[int32(v1pb.UserSetting_LAST_OPENED)]
 	default:
 		return "unknown"
 	}
@@ -1475,6 +1490,10 @@ func convertUserSettingFromStore(storeSetting *storepb.UserSetting, user *store.
 			setting.Value = &v1pb.UserSetting_TagsSetting_{
 				TagsSetting: &v1pb.UserSetting_TagsSetting{Tags: map[string]*v1pb.UserSetting_TagMetadata{}},
 			}
+		case storepb.UserSetting_LAST_OPENED:
+			setting.Value = &v1pb.UserSetting_LastOpenedSetting_{
+				LastOpenedSetting: &v1pb.UserSetting_LastOpenedSetting{},
+			}
 		default:
 			return nil
 		}
@@ -1524,6 +1543,14 @@ func convertUserSettingFromStore(storeSetting *storepb.UserSetting, user *store.
 	case storepb.UserSetting_TAGS:
 		setting.Value = &v1pb.UserSetting_TagsSetting_{
 			TagsSetting: convertUserTagsSettingFromStore(storeSetting.GetTags()),
+		}
+	case storepb.UserSetting_LAST_OPENED:
+		lastOpened := storeSetting.GetLastOpened()
+		setting.Value = &v1pb.UserSetting_LastOpenedSetting_{
+			LastOpenedSetting: &v1pb.UserSetting_LastOpenedSetting{
+				Workspace: lastOpened.GetWorkspace(),
+				Memo:      lastOpened.GetMemo(),
+			},
 		}
 	default:
 		return nil
@@ -1578,6 +1605,17 @@ func convertUserSettingToStore(apiSetting *v1pb.UserSetting, userID int32, key s
 			}
 		} else {
 			return nil, errors.Errorf("tags setting is required")
+		}
+	case storepb.UserSetting_LAST_OPENED:
+		if lastOpened := apiSetting.GetLastOpenedSetting(); lastOpened != nil {
+			storeSetting.Value = &storepb.UserSetting_LastOpened{
+				LastOpened: &storepb.LastOpenedUserSetting{
+					Workspace: lastOpened.Workspace,
+					Memo:      lastOpened.Memo,
+				},
+			}
+		} else {
+			return nil, errors.Errorf("last_opened setting is required")
 		}
 	default:
 		return nil, errors.Errorf("unsupported setting key: %v", key)

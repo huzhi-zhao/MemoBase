@@ -7,6 +7,7 @@ import {
   CopyIcon,
   Edit3Icon,
   FileTextIcon,
+  FolderInputIcon,
   LinkIcon,
   ListChecksIcon,
   ListRestartIcon,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import ConfirmDialog from "@/components/ConfirmDialog";
+import MoveDocumentDialog from "@/components/Notebook/MoveDocumentDialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -37,6 +39,7 @@ const MemoActionMenu = (props: MemoActionMenuProps) => {
 
   // Dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
 
   // Derived state
   const isComment = Boolean(memo.parent);
@@ -57,10 +60,13 @@ const MemoActionMenu = (props: MemoActionMenuProps) => {
     handleUncheckAllTaskListItemsClick,
     handleDeleteMemoClick,
     confirmDeleteMemo,
+    handleMoveMemoClick,
+    confirmMoveMemo,
   } = useMemoActionHandlers({
     memo,
     onEdit: props.onEdit,
     setDeleteDialogOpen,
+    setMoveDialogOpen,
   });
 
   return (
@@ -138,6 +144,14 @@ const MemoActionMenu = (props: MemoActionMenuProps) => {
               </DropdownMenuItem>
             )}
 
+            {/* Move */}
+            {!isComment && (
+              <DropdownMenuItem onClick={handleMoveMemoClick}>
+                <FolderInputIcon className="w-4 h-auto" />
+                {t("notebook.move")}
+              </DropdownMenuItem>
+            )}
+
             {/* Delete */}
             <DropdownMenuItem onClick={handleDeleteMemoClick}>
               <TrashIcon className="w-4 h-auto" />
@@ -157,6 +171,14 @@ const MemoActionMenu = (props: MemoActionMenuProps) => {
         cancelLabel={t("common.cancel")}
         onConfirm={confirmDeleteMemo}
         confirmVariant="destructive"
+      />
+
+      {/* Move dialog */}
+      <MoveDocumentDialog
+        open={moveDialogOpen}
+        onOpenChange={setMoveDialogOpen}
+        currentWorkspace={memo.workspace}
+        onConfirm={confirmMoveMemo}
       />
     </DropdownMenu>
   );

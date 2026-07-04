@@ -1,11 +1,14 @@
 import { create } from "@bufbuild/protobuf";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
+import useSidebarMode from "@/hooks/useSidebarMode";
 import { useUpdateUserGeneralSetting } from "@/hooks/useUserQueries";
 import { Visibility } from "@/types/proto/api/v1/memo_service_pb";
 import { UserSetting_GeneralSetting, UserSetting_GeneralSettingSchema } from "@/types/proto/api/v1/user_service_pb";
 import { loadLocale, useTranslate } from "@/utils/i18n";
 import { convertVisibilityFromString, convertVisibilityToString } from "@/utils/memo";
+import { setSidebarMode } from "@/utils/sidebarMode";
 import { loadTheme } from "@/utils/theme";
 import LocaleSelect from "../LocaleSelect";
 import ThemeSelect from "../ThemeSelect";
@@ -18,6 +21,7 @@ const PreferencesSection = () => {
   const t = useTranslate();
   const { currentUser, userGeneralSetting: generalSetting, refetchSettings } = useAuth();
   const { mutate: updateUserGeneralSetting } = useUpdateUserGeneralSetting(currentUser?.name);
+  const sidebarMode = useSidebarMode();
 
   const handleLocaleSelectChange = (locale: Locale) => {
     // Apply locale immediately for instant UI feedback and persist to localStorage
@@ -77,6 +81,10 @@ const PreferencesSection = () => {
 
           <SettingListItem label={t("setting.preference.theme")} description={t("setting.preference.theme-description")}>
             <ThemeSelect value={setting.theme} onValueChange={handleThemeChange} />
+          </SettingListItem>
+
+          <SettingListItem label={t("setting.preference.mini-menu")} description={t("setting.preference.mini-menu-description")}>
+            <Switch checked={sidebarMode === "mini"} onCheckedChange={(checked) => setSidebarMode(checked ? "mini" : "default")} />
           </SettingListItem>
         </SettingList>
       </SettingGroup>

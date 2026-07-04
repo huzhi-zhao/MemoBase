@@ -50,6 +50,17 @@ type Memo struct {
 	Pinned     bool
 	Payload    *storepb.MemoPayload
 
+	// Hierarchical-notes fields
+	WorkspaceID int32
+	// FolderPath is the slash-separated folder path (relative to the workspace root)
+	// the memo lives under. Empty string means the workspace root.
+	FolderPath string
+	// Title is the document's display name (the "filename"). Required for HTML
+	// documents since they have no H1 heading to derive a title from.
+	Title string
+	// DocType is one of "MARKDOWN" or "HTML".
+	DocType string
+
 	// Composed fields
 	ParentUID *string
 }
@@ -70,6 +81,12 @@ type FindMemo struct {
 	ExcludeContent  bool
 	ExcludeComments bool
 	Filters         []string
+
+	// Hierarchical-notes fields
+	WorkspaceID *int32
+	// FolderPathPrefix, when set, matches memos whose FolderPath equals this value
+	// or is nested under it (i.e. FolderPath == prefix OR FolderPath LIKE prefix + "/%").
+	FolderPathPrefix *string
 
 	// Pagination
 	Limit  *int
@@ -100,6 +117,11 @@ type UpdateMemo struct {
 	Visibility *Visibility
 	Pinned     *bool
 	Payload    *storepb.MemoPayload
+
+	WorkspaceID *int32
+	FolderPath  *string
+	Title       *string
+	DocType     *string
 }
 
 type DeleteMemo struct {
@@ -109,6 +131,13 @@ type DeleteMemo struct {
 func (s *Store) CreateMemo(ctx context.Context, create *Memo) (*Memo, error) {
 	if !base.UIDMatcher.MatchString(create.UID) {
 		return nil, errors.New("invalid uid")
+	}
+	// Documents must have a unique title within their workspace+folder (enforced
+	// by a DB unique index). Callers that don't care about titles (e.g. plain
+	// memos created without the Notebook UI) would otherwise all collide on the
+	// empty string, so default to the UID, which is always unique.
+	if create.Title == "" {
+		create.Title = create.UID
 	}
 	return s.driver.CreateMemo(ctx, create)
 }

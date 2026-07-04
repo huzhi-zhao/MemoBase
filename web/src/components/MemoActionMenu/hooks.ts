@@ -18,9 +18,10 @@ interface UseMemoActionHandlersOptions {
   memo: Memo;
   onEdit?: () => void;
   setDeleteDialogOpen: (open: boolean) => void;
+  setMoveDialogOpen: (open: boolean) => void;
 }
 
-export const useMemoActionHandlers = ({ memo, onEdit, setDeleteDialogOpen }: UseMemoActionHandlersOptions) => {
+export const useMemoActionHandlers = ({ memo, onEdit, setDeleteDialogOpen, setMoveDialogOpen }: UseMemoActionHandlersOptions) => {
   const t = useTranslate();
   const location = useLocation();
   const navigateTo = useNavigateTo();
@@ -113,7 +114,10 @@ export const useMemoActionHandlers = ({ memo, onEdit, setDeleteDialogOpen }: Use
     }
     copy(`${host}/${memo.name}`);
     toast.success(t("message.succeed-copy-link"));
-  }, [memo.name, t, profile.instanceUrl]);
+    if (!isInMemoDetailPage) {
+      navigateTo(`/${memo.name}`);
+    }
+  }, [memo.name, t, profile.instanceUrl, isInMemoDetailPage, navigateTo]);
 
   const handleCopyContent = useCallback(() => {
     copy(memo.content);
@@ -131,6 +135,25 @@ export const useMemoActionHandlers = ({ memo, onEdit, setDeleteDialogOpen }: Use
   const handleDeleteMemoClick = useCallback(() => {
     setDeleteDialogOpen(true);
   }, [setDeleteDialogOpen]);
+
+  const handleMoveMemoClick = useCallback(() => {
+    setMoveDialogOpen(true);
+  }, [setMoveDialogOpen]);
+
+  const confirmMoveMemo = useCallback(
+    async (workspace: string, folderPath: string) => {
+      await updateMemo({
+        update: {
+          name: memo.name,
+          workspace,
+          folderPath,
+        },
+        updateMask: ["workspace", "folder_path"],
+      });
+      toast.success(t("common.save"));
+    },
+    [memo.name, t, updateMemo],
+  );
 
   const confirmDeleteMemo = useCallback(async () => {
     try {
@@ -159,5 +182,7 @@ export const useMemoActionHandlers = ({ memo, onEdit, setDeleteDialogOpen }: Use
     handleUncheckAllTaskListItemsClick,
     handleDeleteMemoClick,
     confirmDeleteMemo,
+    handleMoveMemoClick,
+    confirmMoveMemo,
   };
 };

@@ -50,6 +50,7 @@ const DocumentView = ({ memo, onSaved, onRenamed, onArchiveToggle, onDelete, onS
   const t = useTranslate();
   const { profile } = useInstance();
   const isHtml = memo.docType === Memo_DocType.HTML;
+  const remainingAttachments = partitionInlinedAttachments(memo.attachments, memo.content).rest;
   const [mode, setMode] = useState<"preview" | "edit">("preview");
   const [outlineCollapsed, setOutlineCollapsed] = useState(false);
   const [htmlDraft, setHtmlDraft] = useState(memo.content);
@@ -185,7 +186,11 @@ const DocumentView = ({ memo, onSaved, onRenamed, onArchiveToggle, onDelete, onS
           ) : mode === "preview" ? (
             <div className="px-6 py-4">
               <MemoContent content={memo.content} memoName={memo.name} />
-              <AttachmentListView attachments={partitionInlinedAttachments(memo.attachments, memo.content).rest} />
+              {remainingAttachments.length > 0 && (
+                <div className="mt-6 border-t border-border pt-4">
+                  <AttachmentListView attachments={remainingAttachments} />
+                </div>
+              )}
             </div>
           ) : (
             <div className="h-full flex flex-col px-4 py-4">

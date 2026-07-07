@@ -51,15 +51,24 @@ export const useAutoSave = (username: string, cacheKey: string | undefined, enab
       }
     };
 
+    // window blur covers focus leaving the browser entirely (e.g. switching to another app),
+    // which visibilitychange alone does not always catch.
     window.addEventListener("pagehide", flushDraft);
+    window.addEventListener("blur", flushDraft);
     document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // Belt-and-suspenders periodic flush in case the debounced save missed something
+    // (e.g. rapid changes right before the interval), independent of focus/blur state.
+    const intervalId = window.setInterval(flushDraft, 60 * 1000);
 
     return () => {
       // Flush on unmount (e.g. editor closes) to ensure the draft is persisted
       // before the component is torn down — distinct from the visibility flush above.
       flushDraft();
       window.removeEventListener("pagehide", flushDraft);
+      window.removeEventListener("blur", flushDraft);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.clearInterval(intervalId);
     };
   }, [store, username, cacheKey, enabled]);
 

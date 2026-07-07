@@ -34,8 +34,17 @@ export const useMemoInit = ({
 
     if (memo) {
       const initialState = memoService.fromMemo(memo);
-      cacheService.clear(key);
-      dispatch(actions.initMemo(initialState));
+      // Restore an unsaved edit draft if one exists and still differs from the
+      // saved memo content (e.g. user switched to preview/navigated away
+      // without saving). If the draft matches the saved content, it's stale
+      // and can be dropped.
+      const cachedContent = cacheService.load(key);
+      if (cachedContent && cachedContent !== memo.content) {
+        dispatch(actions.initMemo({ ...initialState, content: cachedContent }));
+      } else {
+        cacheService.clear(key);
+        dispatch(actions.initMemo(initialState));
+      }
     } else {
       const cachedContent = cacheService.load(key);
       if (cachedContent) {

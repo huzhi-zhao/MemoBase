@@ -80,10 +80,11 @@ const MemoEditorImpl: React.FC<MemoEditorProps> = ({
     defaultVisibility,
     defaultCreateTime,
   });
-  const isDraftCacheEnabled = !memo;
-
   // Auto-save content to localStorage (subscribes to the store internally).
-  const { discardDraft } = useAutoSave(currentUser?.name ?? "", cacheKey, isInitialized && isDraftCacheEnabled);
+  // Enabled for both new-memo creation and editing an existing memo — each
+  // MemoEditor instance uses a cacheKey scoped to the specific memo being
+  // edited (see MemoView/DocumentView callers), so this is safe per-document.
+  const { discardDraft } = useAutoSave(currentUser?.name ?? "", cacheKey, isInitialized);
 
   // Focus mode management with body scroll lock
   useFocusMode(isFocusMode);

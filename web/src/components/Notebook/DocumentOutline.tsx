@@ -1,48 +1,7 @@
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useTranslate } from "@/utils/i18n";
-import { slugify } from "@/utils/markdown-manipulation";
-
-interface OutlineItem {
-  level: number;
-  text: string;
-  slug: string;
-}
-
-// Lightweight heading scan (mirrors the slugging rules used by
-// rehype-heading-id) so the outline can be derived directly from the raw
-// Markdown source without waiting on a DOM render pass.
-function extractOutline(content: string): OutlineItem[] {
-  const lines = content.split("\n");
-  const items: OutlineItem[] = [];
-  const seen = new Map<string, number>();
-  let inCodeFence = false;
-
-  for (const line of lines) {
-    if (/^\s*```/.test(line)) {
-      inCodeFence = !inCodeFence;
-      continue;
-    }
-    if (inCodeFence) continue;
-
-    const match = /^(#{1,6})\s+(.+?)\s*#*$/.exec(line);
-    if (!match) continue;
-
-    const level = match[1].length;
-    const text = match[2].trim();
-    let slug = slugify(text);
-    const count = seen.get(slug) ?? 0;
-    if (count > 0) {
-      seen.set(slug, count + 1);
-      slug = `${slug}-${count}`;
-    } else {
-      seen.set(slug, 1);
-    }
-    items.push({ level, text, slug });
-  }
-
-  return items;
-}
+import { extractHeadings } from "@/utils/markdown-manipulation";
 
 interface Props {
   content: string;
@@ -51,7 +10,10 @@ interface Props {
 
 const DocumentOutline = ({ content, containerRef }: Props) => {
   const t = useTranslate();
-  const items = useMemo(() => extractOutline(content), [content]);
+  // Uses the same mdast-based extraction as rehype-heading-id so the slug
+  // computed here always matches the id assigned to the rendered heading,
+  // even when the heading text contains inline markdown (links, emphasis, etc.).
+  const items = useMemo(() => extractHeadings(content), [content]);
 
   const handleClick = (slug: string) => {
     const container = containerRef.current;

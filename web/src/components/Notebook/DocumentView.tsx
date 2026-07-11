@@ -184,6 +184,7 @@ const DocumentView = ({ memo, onSaved, onRenamed, onArchiveToggle, onDelete, onS
                 className="px-6 py-4"
                 parentMemoName={memo.name}
                 attachmentName={pdfAttachment.name}
+                filename={pdfAttachment.filename}
               />
             )
           ) : isHtml ? (

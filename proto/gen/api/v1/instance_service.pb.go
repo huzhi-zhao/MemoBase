@@ -1493,8 +1493,13 @@ type InstanceSetting_AISetting struct {
 	// no feature-specific provider configuration of their own fall back to this provider.
 	// Empty string means no default is set.
 	DefaultProviderId string `protobuf:"bytes,3,opt,name=default_provider_id,json=defaultProviderId,proto3" json:"default_provider_id,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// format_pdf_text enables running the extracted plain text of a PDF attachment through the
+	// default AI provider to restructure it into Markdown when viewing the PDF's plain-text
+	// panel. When disabled (the default), the raw extracted text is shown as-is (pages are still
+	// separated), avoiding the slow, billable LLM call.
+	FormatPdfText bool `protobuf:"varint,4,opt,name=format_pdf_text,json=formatPdfText,proto3" json:"format_pdf_text,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *InstanceSetting_AISetting) Reset() {
@@ -1546,6 +1551,13 @@ func (x *InstanceSetting_AISetting) GetDefaultProviderId() string {
 		return x.DefaultProviderId
 	}
 	return ""
+}
+
+func (x *InstanceSetting_AISetting) GetFormatPdfText() bool {
+	if x != nil {
+		return x.FormatPdfText
+	}
+	return false
 }
 
 // BackupSetting configures and reports the status of the weekly/manual SQLite-to-S3 database
@@ -2212,7 +2224,7 @@ const file_api_v1_instance_service_proto_rawDesc = "" +
 	"\x06commit\x18\b \x01(\tR\x06commit\x12\x1f\n" +
 	"\vneeds_setup\x18\t \x01(\bR\n" +
 	"needsSetup\"\x1b\n" +
-	"\x19GetInstanceProfileRequest\"\xeb\x1f\n" +
+	"\x19GetInstanceProfileRequest\"\x93 \n" +
 	"\x0fInstanceSetting\x12\x17\n" +
 	"\x04name\x18\x01 \x01(\tB\x03\xe0A\bR\x04name\x12W\n" +
 	"\x0fgeneral_setting\x18\x02 \x01(\v2,.memos.api.v1.InstanceSetting.GeneralSettingH\x00R\x0egeneralSetting\x12W\n" +
@@ -2280,11 +2292,12 @@ const file_api_v1_instance_service_proto_rawDesc = "" +
 	"\breply_to\x18\b \x01(\tR\areplyTo\x12\x17\n" +
 	"\ause_tls\x18\t \x01(\bR\x06useTls\x12\x17\n" +
 	"\ause_ssl\x18\n" +
-	" \x01(\bR\x06useSsl\x1a\xe2\x01\n" +
+	" \x01(\bR\x06useSsl\x1a\x8a\x02\n" +
 	"\tAISetting\x12L\n" +
 	"\tproviders\x18\x01 \x03(\v2..memos.api.v1.InstanceSetting.AIProviderConfigR\tproviders\x12W\n" +
 	"\rtranscription\x18\x02 \x01(\v21.memos.api.v1.InstanceSetting.TranscriptionConfigR\rtranscription\x12.\n" +
-	"\x13default_provider_id\x18\x03 \x01(\tR\x11defaultProviderId\x1a\xd6\x01\n" +
+	"\x13default_provider_id\x18\x03 \x01(\tR\x11defaultProviderId\x12&\n" +
+	"\x0fformat_pdf_text\x18\x04 \x01(\bR\rformatPdfText\x1a\xd6\x01\n" +
 	"\rBackupSetting\x12#\n" +
 	"\rpath_template\x18\x04 \x01(\tR\fpathTemplate\x12D\n" +
 	"\x10last_backup_time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x0elastBackupTime\x12.\n" +

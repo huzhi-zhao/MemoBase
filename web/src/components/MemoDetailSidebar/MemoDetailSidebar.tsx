@@ -1,8 +1,18 @@
 import { create } from "@bufbuild/protobuf";
 import { timestampDate } from "@bufbuild/protobuf/wkt";
 import { isEqual } from "lodash-es";
-import { CheckCircleIcon, ChevronRightIcon, Code2Icon, HashIcon, ImageIcon, LinkIcon, type LucideIcon, Share2Icon } from "lucide-react";
-import { useMemo, useState } from "react";
+import {
+  CheckCircleIcon,
+  ChevronRightIcon,
+  Code2Icon,
+  DownloadIcon,
+  HashIcon,
+  ImageIcon,
+  LinkIcon,
+  type LucideIcon,
+  Share2Icon,
+} from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import useCurrentUser from "@/hooks/useCurrentUser";
 import { cn } from "@/lib/utils";
@@ -43,6 +53,13 @@ const TAG_BADGE_CLASSES =
 const SHARE_ACTION_ROW_CLASSES =
   "h-auto min-h-0 w-full justify-between rounded-none px-2 py-1.5 text-xs font-normal leading-tight text-muted-foreground transition-colors hover:bg-muted/40 hover:text-muted-foreground focus-visible:ring-offset-0 gap-1.5";
 
+/** Sanitized title (or the memo's uid as a fallback) for the downloaded .md filename. */
+const buildMemoMarkdownFileName = (memo: Memo) => {
+  const fallback = memo.name.split("/").pop() || "memo";
+  const base = (memo.title || fallback).trim().replace(/[\\/:*?"<>|]+/g, "-") || fallback;
+  return `${base}.md`;
+};
+
 const MemoDetailSidebar = ({ memo, className, onShareImageOpen }: Props) => {
   const t = useTranslate();
   const currentUser = useCurrentUser();
@@ -51,6 +68,16 @@ const MemoDetailSidebar = ({ memo, className, onShareImageOpen }: Props) => {
   const canManageShares = !memo.parent && (memo.creator === currentUser?.name || isSuperUser(currentUser));
   const hasUpdated = !isEqual(memo.createTime, memo.updateTime);
   const headings = useMemo(() => extractHeadings(memo.content), [memo.content]);
+
+  const handleDownloadMarkdown = useCallback(() => {
+    const blob = new Blob([memo.content], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = buildMemoMarkdownFileName(memo);
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }, [memo]);
 
   const propertyBadges = useMemo(() => {
     const badges: PropertyBadge[] = [];
@@ -68,31 +95,36 @@ const MemoDetailSidebar = ({ memo, className, onShareImageOpen }: Props) => {
         </SidebarSection>
       )}
 
-      {(canManageShares || onShareImageOpen) && (
-        <SidebarSection label={t("memo.share.section-label")}>
-          <div className="overflow-hidden rounded-md border border-border/50 bg-muted/20">
-            {onShareImageOpen && (
-              <Button variant="ghost" size="sm" className={SHARE_ACTION_ROW_CLASSES} onClick={onShareImageOpen}>
-                <span className="flex min-w-0 flex-1 items-center gap-2">
-                  <ImageIcon className="size-3.5 shrink-0 text-muted-foreground/90" />
-                  <span className="truncate">{t("memo.share.open-image")}</span>
-                </span>
-                <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground/35" />
-              </Button>
-            )}
-            {onShareImageOpen && canManageShares && <div className="border-t border-border/50" />}
-            {canManageShares && (
-              <Button variant="ghost" size="sm" className={SHARE_ACTION_ROW_CLASSES} onClick={() => setSharePanelOpen(true)}>
-                <span className="flex min-w-0 flex-1 items-center gap-2">
-                  <Share2Icon className="size-3.5 shrink-0 text-muted-foreground/90" />
-                  <span className="truncate">{t("memo.share.open-panel")}</span>
-                </span>
-                <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground/35" />
-              </Button>
-            )}
-          </div>
-        </SidebarSection>
-      )}
+      <SidebarSection label={t("memo.share.section-label")}>
+        <div className="overflow-hidden rounded-md border border-border/50 bg-muted/20">
+          {onShareImageOpen && (
+            <Button variant="ghost" size="sm" className={SHARE_ACTION_ROW_CLASSES} onClick={onShareImageOpen}>
+              <span className="flex min-w-0 flex-1 items-center gap-2">
+                <ImageIcon className="size-3.5 shrink-0 text-muted-foreground/90" />
+                <span className="truncate">{t("memo.share.open-image")}</span>
+              </span>
+              <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground/35" />
+            </Button>
+          )}
+          {onShareImageOpen && canManageShares && <div className="border-t border-border/50" />}
+          {canManageShares && (
+            <Button variant="ghost" size="sm" className={SHARE_ACTION_ROW_CLASSES} onClick={() => setSharePanelOpen(true)}>
+              <span className="flex min-w-0 flex-1 items-center gap-2">
+                <Share2Icon className="size-3.5 shrink-0 text-muted-foreground/90" />
+                <span className="truncate">{t("memo.share.open-panel")}</span>
+              </span>
+              <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground/35" />
+            </Button>
+          )}
+          {(onShareImageOpen || canManageShares) && <div className="border-t border-border/50" />}
+          <Button variant="ghost" size="sm" className={SHARE_ACTION_ROW_CLASSES} onClick={handleDownloadMarkdown}>
+            <span className="flex min-w-0 flex-1 items-center gap-2">
+              <DownloadIcon className="size-3.5 shrink-0 text-muted-foreground/90" />
+              <span className="truncate">{t("memo.share.download-markdown")}</span>
+            </span>
+          </Button>
+        </div>
+      </SidebarSection>
 
       <SidebarSection label={t("common.created-at")}>
         <div className="flex flex-col gap-1">

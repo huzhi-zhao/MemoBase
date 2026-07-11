@@ -302,6 +302,7 @@
       "create-failed": "Failed to create share link",
       "create-link": "Create new link",
       "creating": "Creating…",
+      "download-markdown": "Download document (.md)",
       "expiry-1-day": "1 day",
       "expiry-30-days": "30 days",
       "expiry-7-days": "7 days",
@@ -511,7 +512,11 @@
       "transcription-prompt": "Prompt hints",
       "transcription-provider": "Provider",
       "transcription-title": "Transcription",
-      "transcription-warning-no-key": "The selected provider has no API key set. Edit the integration above to add one."
+      "transcription-warning-no-key": "The selected provider has no API key set. Edit the integration above to add one.",
+      "pdf-text-title": "PDF plain text",
+      "pdf-text-description": "Controls the plain-text panel in the PDF preview.",
+      "pdf-text-format-label": "Format extracted PDF text with AI",
+      "pdf-text-format-help": "When on, a PDF's extracted plain text is restructured into Markdown by the default AI provider. When off, the raw extracted text is shown as-is (pages are still separated), avoiding the slow LLM call."
     },
     "instance": {
       "access-description": "Control sign-up, authentication, profile editing, and calendar defaults for this instance.",

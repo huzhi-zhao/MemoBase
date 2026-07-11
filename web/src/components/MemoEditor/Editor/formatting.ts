@@ -277,6 +277,18 @@ export function createFormattingKeymap(): KeyBinding[] {
       return true;
     },
   });
+  // H4/H5 aren't toolbar-addressable (ToolbarHeadingLevel caps at 3, so the
+  // toolbar/active-state won't highlight them), but setHeading itself accepts
+  // any level and the markdown/rendering already support H4-H6 — so these two
+  // bindings call it directly instead of going through the EditorCommandId
+  // catalog, which only goes up to heading3.
+  const bindHeadingLevel = (key: string, level: number): KeyBinding => ({
+    key,
+    run: (view) => {
+      setHeading(view, level);
+      return true;
+    },
+  });
   return [
     bind("Mod-b", "bold"),
     bind("Mod-i", "italic"),
@@ -289,6 +301,8 @@ export function createFormattingKeymap(): KeyBinding[] {
     bind("Mod-Alt-1", "heading1"),
     bind("Mod-Alt-2", "heading2"),
     bind("Mod-Alt-3", "heading3"),
+    bindHeadingLevel("Mod-Alt-4", 4),
+    bindHeadingLevel("Mod-Alt-5", 5),
   ];
 }
 

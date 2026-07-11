@@ -184,6 +184,11 @@ message InstanceAISetting {
   // no feature-specific provider configuration of their own fall back to this provider.
   // Empty string means no default is set.
   string default_provider_id = 3;
+
+  // format_pdf_text enables running a PDF attachment's extracted plain text through the default
+  // AI provider to restructure it into Markdown in the plain-text panel. When disabled (the
+  // default), the raw extracted text is shown as-is, avoiding the slow, billable LLM call.
+  bool format_pdf_text = 4;
 }
 
 message AIProviderConfig {

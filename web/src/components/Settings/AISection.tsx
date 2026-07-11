@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { instanceServiceClient } from "@/connect";
 import { useInstance } from "@/contexts/InstanceContext";
@@ -113,9 +114,7 @@ const toProviderConfig = (provider: LocalAIProvider) =>
     type: provider.type,
     endpoint: provider.endpoint.trim(),
     apiKey: provider.apiKey,
-    models: provider.models.map((model) =>
-      create(InstanceSetting_AIModelConfigSchema, { id: model.id.trim(), name: model.name.trim() }),
-    ),
+    models: provider.models.map((model) => create(InstanceSetting_AIModelConfigSchema, { id: model.id.trim(), name: model.name.trim() })),
   });
 
 const toTranscriptionConfig = (transcription: LocalTranscription) =>
@@ -133,6 +132,7 @@ const AISection = () => {
   const [providers, setProviders] = useState<LocalAIProvider[]>(() => originalSetting.providers.map(toLocalProvider));
   const [transcription, setTranscription] = useState<LocalTranscription>(() => toLocalTranscription(originalSetting.transcription));
   const [defaultProviderId, setDefaultProviderId] = useState(originalSetting.defaultProviderId);
+  const [formatPdfText, setFormatPdfText] = useState(originalSetting.formatPdfText);
   const [editingProvider, setEditingProvider] = useState<LocalAIProvider | undefined>();
   const [deleteTarget, setDeleteTarget] = useState<LocalAIProvider | undefined>();
 
@@ -143,6 +143,10 @@ const AISection = () => {
   useEffect(() => {
     setDefaultProviderId(originalSetting.defaultProviderId);
   }, [originalSetting.defaultProviderId]);
+
+  useEffect(() => {
+    setFormatPdfText(originalSetting.formatPdfText);
+  }, [originalSetting.formatPdfText]);
 
   // Only re-sync the transcription draft when the server-side content actually
   // changes — not on every originalSetting identity change. This prevents
@@ -173,6 +177,7 @@ const AISection = () => {
     nextTranscription: InstanceSetting_TranscriptionConfig | undefined,
     errorContext: string,
     nextDefaultProviderId: string = defaultProviderId,
+    nextFormatPdfText: boolean = formatPdfText,
   ) => {
     return saveInstanceSetting({
       key: InstanceSetting_Key.AI,
@@ -184,11 +189,18 @@ const AISection = () => {
             providers: nextProviders.map(toProviderConfig),
             transcription: nextTranscription,
             defaultProviderId: nextDefaultProviderId,
+            formatPdfText: nextFormatPdfText,
           }),
         },
       }),
       errorContext,
     });
+  };
+
+  const handleToggleFormatPdfText = async (checked: boolean) => {
+    const ok = await persistAISetting(providers, originalSetting.transcription, "Update PDF text formatting", defaultProviderId, checked);
+    if (!ok) return;
+    setFormatPdfText(checked);
   };
 
   const handleCreateProvider = () => {
@@ -386,6 +398,16 @@ const AISection = () => {
           onChange={setTranscription}
           referencedProvider={transcriptionProviderRef}
         />
+      </SettingGroup>
+
+      <SettingGroup title={t("setting.ai.pdf-text-title")} description={t("setting.ai.pdf-text-description")} showSeparator>
+        <div className="flex max-w-3xl items-center justify-between gap-4">
+          <div className="flex flex-col gap-0.5">
+            <Label>{t("setting.ai.pdf-text-format-label")}</Label>
+            <p className="text-xs text-muted-foreground">{t("setting.ai.pdf-text-format-help")}</p>
+          </div>
+          <Switch checked={formatPdfText} onCheckedChange={handleToggleFormatPdfText} />
+        </div>
       </SettingGroup>
 
       <AIProviderDialog

@@ -285,6 +285,12 @@ message InstanceSetting {
     // no feature-specific provider configuration of their own fall back to this provider.
     // Empty string means no default is set.
     string default_provider_id = 3;
+
+    // format_pdf_text enables running the extracted plain text of a PDF attachment through the
+    // default AI provider to restructure it into Markdown when viewing the PDF's plain-text
+    // panel. When disabled (the default), the raw extracted text is shown as-is (pages are still
+    // separated), avoiding the slow, billable LLM call.
+    bool format_pdf_text = 4;
   }
 
   // BackupSetting configures and reports the status of the weekly/manual SQLite-to-S3 database

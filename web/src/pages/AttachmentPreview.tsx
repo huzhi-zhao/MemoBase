@@ -122,6 +122,7 @@ const AttachmentPreview = () => {
             className="px-6 py-4"
             parentMemoName={attachment.memo}
             attachmentName={attachment.name}
+            filename={attachment.filename}
           />
         )}
         {isHtml &&

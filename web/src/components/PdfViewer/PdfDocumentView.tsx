@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import MemoEditor from "@/components/MemoEditor";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { extractAttachmentUidFromName } from "@/helpers/resource-names";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
 import { PdfAnnotationSchema } from "@/types/proto/api/v1/memo_service_pb";
@@ -11,9 +12,15 @@ import { useTranslate } from "@/utils/i18n";
 import type { PdfAnnotationRect } from "./PdfAnnotationLayer";
 import { PdfAnnotationSidebar } from "./PdfAnnotationSidebar";
 import { PdfPages } from "./PdfPages";
+import { PdfTextSidebar } from "./PdfTextSidebar";
 import { PdfToolbar } from "./PdfToolbar";
 import { usePdfAnnotations } from "./usePdfAnnotations";
+import { usePdfExtractedText } from "./usePdfExtractedText";
 import { usePdfViewerState } from "./usePdfViewerState";
+
+// Which docked side panel is showing. Annotations (comments) and the plain-text view share the
+// same slot and are mutually exclusive; null means the panel is closed.
+type SidebarPanel = "annotations" | "text" | null;
 
 interface Props {
   url: string;
@@ -24,23 +31,59 @@ interface Props {
   parentMemoName?: string;
   /** The attachment's resource name (attachments/{uid}), used to anchor annotations to this specific file. */
   attachmentName?: string;
+  /** The attachment's filename, passed to the AI as a hint when formatting the extracted text. */
+  filename?: string;
 }
 
 // Splits the PDF viewer into a toolbar (portaled into a caller-provided slot, e.g. a
 // document title bar) and a pages area rendered inline — used by DocumentView so the
 // page/zoom/orientation controls can sit next to the title instead of above the content.
-export const PdfDocumentView = ({ url, toolbarSlot, className, parentMemoName, attachmentName }: Props) => {
+export const PdfDocumentView = ({ url, toolbarSlot, className, parentMemoName, attachmentName, filename }: Props) => {
   const t = useTranslate();
   const state = usePdfViewerState(url);
   const isDesktop = useMediaQuery("lg");
   const [annotateMode, setAnnotateMode] = useState(false);
   const [selectedMemoName, setSelectedMemoName] = useState<string>();
   const [pendingAnnotation, setPendingAnnotation] = useState<{ page: number; rect: PdfAnnotationRect; text: string }>();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activePanel, setActivePanel] = useState<SidebarPanel>(null);
   const canAnnotate = !!parentMemoName && !!attachmentName;
   const { byPage, all, refetch } = usePdfAnnotations(parentMemoName, attachmentName);
   const pageRefs = useRef(new Map<number, HTMLDivElement>());
   const defaultOpenedRef = useRef(false);
+  // Docked-panel width in px. null keeps the CSS default (30% of the row); a drag on the
+  // left-edge handle switches to an explicit px width, clamped to a sane range.
+  const [sidebarWidth, setSidebarWidth] = useState<number | null>(null);
+  const sidebarWrapperRef = useRef<HTMLDivElement>(null);
+
+  const startResize = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = sidebarWrapperRef.current?.getBoundingClientRect().width ?? 0;
+    const onMove = (ev: MouseEvent) => {
+      // Dragging left (clientX decreasing) widens the right-docked panel.
+      const next = startWidth + (startX - ev.clientX);
+      setSidebarWidth(Math.min(Math.max(next, 240), window.innerWidth * 0.7));
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      document.body.style.userSelect = "";
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    document.body.style.userSelect = "none";
+  };
+
+  // Extract + AI-format the text only once the text panel has been opened, reusing the
+  // already-loaded pdf.js document so no second fetch/parse is needed.
+  const textResult = usePdfExtractedText({
+    uid: attachmentName ? extractAttachmentUidFromName(attachmentName) : "",
+    url,
+    filename: filename ?? "",
+    doc: state.doc,
+    numPages: state.numPages,
+    enabled: activePanel === "text" && !!state.doc && state.numPages > 0,
+  });
 
   const registerPageRef = useCallback((page: number, el: HTMLDivElement | null) => {
     if (el) pageRefs.current.set(page, el);
@@ -54,7 +97,7 @@ export const PdfDocumentView = ({ url, toolbarSlot, className, parentMemoName, a
   useEffect(() => {
     if (defaultOpenedRef.current || all.length === 0) return;
     defaultOpenedRef.current = true;
-    setSidebarOpen(true);
+    setActivePanel("annotations");
   }, [all.length]);
 
   // Jumps to the page an annotation lives on. In paginated (horizontal) mode that means
@@ -83,18 +126,34 @@ export const PdfDocumentView = ({ url, toolbarSlot, className, parentMemoName, a
     return <div className={cn("w-full p-6 text-center text-sm text-destructive", className)}>{t("pdf.load-failed")}</div>;
   }
 
-  const sidebar = (
-    <PdfAnnotationSidebar
-      annotations={all}
-      selectedMemoName={selectedMemoName}
-      onClose={() => setSidebarOpen(false)}
-      onSelect={(memoName, page) => {
-        setSelectedMemoName(memoName);
-        jumpToPage(page);
-        if (!isDesktop) setSidebarOpen(false);
-      }}
-    />
-  );
+  // Content of whichever panel is docked/open. `onClose` is wired only on desktop (the mobile
+  // Sheet has its own dismiss); on mobile, selecting an entry closes the sheet before jumping.
+  const renderPanel = (forDesktop: boolean) =>
+    activePanel === "text" ? (
+      <PdfTextSidebar
+        className={forDesktop ? undefined : "w-full max-w-full border-l-0 border-t-0"}
+        blocks={textResult.blocks}
+        formatting={textResult.formatting}
+        error={textResult.error}
+        onClose={forDesktop ? () => setActivePanel(null) : undefined}
+        onSelect={(page) => {
+          if (!forDesktop) setActivePanel(null);
+          jumpToPage(page);
+        }}
+      />
+    ) : (
+      <PdfAnnotationSidebar
+        className={forDesktop ? undefined : "w-full max-w-full border-l-0 border-t-0"}
+        annotations={all}
+        selectedMemoName={selectedMemoName}
+        onClose={forDesktop ? () => setActivePanel(null) : undefined}
+        onSelect={(memoName, page) => {
+          setSelectedMemoName(memoName);
+          if (!forDesktop) setActivePanel(null);
+          jumpToPage(page);
+        }}
+      />
+    );
 
   return (
     <>
@@ -117,9 +176,10 @@ export const PdfDocumentView = ({ url, toolbarSlot, className, parentMemoName, a
           onZoomIn={state.zoomIn}
           annotateMode={canAnnotate ? annotateMode : undefined}
           onToggleAnnotateMode={canAnnotate ? () => setAnnotateMode((v) => !v) : undefined}
-          sidebarOpen={canAnnotate ? sidebarOpen : undefined}
-          onToggleSidebar={canAnnotate ? () => setSidebarOpen((v) => !v) : undefined}
-          textViewHref={attachmentName ? `/${attachmentName}/text` : undefined}
+          sidebarOpen={canAnnotate ? activePanel === "annotations" : undefined}
+          onToggleSidebar={canAnnotate ? () => setActivePanel((p) => (p === "annotations" ? null : "annotations")) : undefined}
+          textOpen={activePanel === "text"}
+          onToggleText={() => setActivePanel((p) => (p === "text" ? null : "text"))}
         />,
         toolbarSlot,
       )}
@@ -138,39 +198,41 @@ export const PdfDocumentView = ({ url, toolbarSlot, className, parentMemoName, a
           annotateMode={canAnnotate && annotateMode}
           onAnnotationSelect={(memoName) => {
             setSelectedMemoName(memoName);
-            setSidebarOpen(true);
+            setActivePanel("annotations");
           }}
           onAnnotationCreate={canAnnotate ? (page, rect, text) => setPendingAnnotation({ page, rect, text }) : undefined}
           basePageWidth={state.basePageWidth}
           basePageHeight={state.basePageHeight}
           onWrapperRef={registerPageRef}
         />
-        {canAnnotate && sidebarOpen && isDesktop && (
+        {activePanel !== null && isDesktop && (
           // Sticky (not part of the page stack's own height) so it stays docked to the
           // right edge of whichever ancestor scrolls, like Adobe's comments panel, instead
           // of stretching the row or getting pushed around as notes/pages accumulate.
           // The width lives here (not on the sidebar itself): the sidebar uses w-full, and
           // a percentage width on a child of this auto-width sticky wrapper would resolve
           // circularly and blow up to content width.
-          <div className="sticky top-0 h-[calc(100vh-6rem)] max-h-[calc(100vh-6rem)] w-[20%] min-w-[240px] shrink-0">{sidebar}</div>
+          <div
+            ref={sidebarWrapperRef}
+            style={sidebarWidth != null ? { width: `${sidebarWidth}px` } : undefined}
+            className="relative sticky top-0 h-[calc(100vh-6rem)] max-h-[calc(100vh-6rem)] w-[30%] min-w-[240px] shrink-0"
+          >
+            {/* Left-edge drag handle: centered on the border, widened hover hit area. */}
+            <div
+              onMouseDown={startResize}
+              className="absolute left-0 top-0 z-10 h-full w-1.5 -translate-x-1/2 cursor-col-resize transition-colors hover:bg-primary/40"
+            />
+            {renderPanel(true)}
+          </div>
         )}
       </div>
-      {canAnnotate && !isDesktop && (
-        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+      {activePanel !== null && !isDesktop && (
+        <Sheet open onOpenChange={(open) => !open && setActivePanel(null)}>
           <SheetContent side="right" className="w-[85%] max-w-full overflow-y-auto px-2 py-3 bg-background">
             <SheetHeader>
-              <SheetTitle>{t("pdf.annotations")}</SheetTitle>
+              <SheetTitle>{t(activePanel === "text" ? "pdf.plain-text-view" : "pdf.annotations")}</SheetTitle>
             </SheetHeader>
-            <PdfAnnotationSidebar
-              className="w-full max-w-full border-l-0 border-t-0"
-              annotations={all}
-              selectedMemoName={selectedMemoName}
-              onSelect={(memoName, page) => {
-                setSelectedMemoName(memoName);
-                setSidebarOpen(false);
-                jumpToPage(page);
-              }}
-            />
+            {renderPanel(false)}
           </SheetContent>
         </Sheet>
       )}
@@ -198,7 +260,7 @@ export const PdfDocumentView = ({ url, toolbarSlot, className, parentMemoName, a
               onConfirm={(memoName) => {
                 setPendingAnnotation(undefined);
                 setSelectedMemoName(memoName);
-                setSidebarOpen(true);
+                setActivePanel("annotations");
                 refetch();
               }}
               onCancel={() => setPendingAnnotation(undefined)}

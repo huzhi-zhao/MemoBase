@@ -217,6 +217,9 @@ func (s *APIV1Service) FormatMarkdown(ctx context.Context, request *v1pb.FormatM
 		"The text was extracted from a PDF, so line breaks may be arbitrary. " +
 		"Preserve the original text content completely and verbatim: do not add, remove, summarize, translate, or rephrase anything. " +
 		"Only add Markdown structure: headings, lists, tables, emphasis, code blocks, and paragraph breaks where the original layout implies them. " +
+		"The input contains lines that are exactly \"---\" on their own line. These are page separators between PDF pages. " +
+		"You MUST keep every \"---\" separator exactly where it is, on its own line, and MUST NOT add any new \"---\" line anywhere else. " +
+		"Do not use \"---\" (a thematic break / horizontal rule) for any other purpose in the formatted output; use headings or blank lines for section breaks instead. " +
 		"Keep the original language. Return only the Markdown, with no surrounding explanation or code fence."
 	if filename := strings.TrimSpace(request.GetFilename()); filename != "" {
 		instructions += "\n\nThe source file is named: " + filename

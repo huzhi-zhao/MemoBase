@@ -750,6 +750,7 @@ func convertInstanceAISettingFromStore(setting *storepb.InstanceAISetting) *v1pb
 		Providers:         make([]*v1pb.InstanceSetting_AIProviderConfig, 0, len(setting.Providers)),
 		Transcription:     convertTranscriptionConfigFromStore(setting.GetTranscription()),
 		DefaultProviderId: setting.GetDefaultProviderId(),
+		FormatPdfText:     setting.GetFormatPdfText(),
 	}
 	for _, provider := range setting.Providers {
 		if provider == nil {
@@ -788,6 +789,7 @@ func convertInstanceAISettingToStore(setting *v1pb.InstanceSetting_AISetting) *s
 		Providers:         make([]*storepb.AIProviderConfig, 0, len(setting.Providers)),
 		Transcription:     convertTranscriptionConfigToStore(setting.GetTranscription()),
 		DefaultProviderId: setting.GetDefaultProviderId(),
+		FormatPdfText:     setting.GetFormatPdfText(),
 	}
 	for _, provider := range setting.Providers {
 		if provider == nil {

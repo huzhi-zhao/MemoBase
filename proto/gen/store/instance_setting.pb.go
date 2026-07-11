@@ -1081,8 +1081,12 @@ type InstanceAISetting struct {
 	// no feature-specific provider configuration of their own fall back to this provider.
 	// Empty string means no default is set.
 	DefaultProviderId string `protobuf:"bytes,3,opt,name=default_provider_id,json=defaultProviderId,proto3" json:"default_provider_id,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// format_pdf_text enables running a PDF attachment's extracted plain text through the default
+	// AI provider to restructure it into Markdown in the plain-text panel. When disabled (the
+	// default), the raw extracted text is shown as-is, avoiding the slow, billable LLM call.
+	FormatPdfText bool `protobuf:"varint,4,opt,name=format_pdf_text,json=formatPdfText,proto3" json:"format_pdf_text,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *InstanceAISetting) Reset() {
@@ -1134,6 +1138,13 @@ func (x *InstanceAISetting) GetDefaultProviderId() string {
 		return x.DefaultProviderId
 	}
 	return ""
+}
+
+func (x *InstanceAISetting) GetFormatPdfText() bool {
+	if x != nil {
+		return x.FormatPdfText
+	}
+	return false
 }
 
 type AIProviderConfig struct {
@@ -1563,11 +1574,12 @@ const file_store_instance_setting_proto_rawDesc = "" +
 	"\breply_to\x18\b \x01(\tR\areplyTo\x12\x17\n" +
 	"\ause_tls\x18\t \x01(\bR\x06useTls\x12\x17\n" +
 	"\ause_ssl\x18\n" +
-	" \x01(\bR\x06useSsl\"\xc8\x01\n" +
+	" \x01(\bR\x06useSsl\"\xf0\x01\n" +
 	"\x11InstanceAISetting\x12;\n" +
 	"\tproviders\x18\x01 \x03(\v2\x1d.memos.store.AIProviderConfigR\tproviders\x12F\n" +
 	"\rtranscription\x18\x02 \x01(\v2 .memos.store.TranscriptionConfigR\rtranscription\x12.\n" +
-	"\x13default_provider_id\x18\x03 \x01(\tR\x11defaultProviderId\"\xd2\x01\n" +
+	"\x13default_provider_id\x18\x03 \x01(\tR\x11defaultProviderId\x12&\n" +
+	"\x0fformat_pdf_text\x18\x04 \x01(\bR\rformatPdfText\"\xd2\x01\n" +
 	"\x10AIProviderConfig\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12/\n" +

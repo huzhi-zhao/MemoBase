@@ -14,7 +14,8 @@
 | `Mod-Shift-8` | 无序列表 | 同上 |
 | `Mod-Shift-9` | 任务列表 `- [ ]` | 同上 |
 | `Mod-Alt-0` | 正文（取消标题） | |
-| `Mod-Alt-1` / `Mod-Alt-2` / `Mod-Alt-3` | 一级 / 二级 / 三级标题 | 只支持 H1–H3（工具栏可寻址范围一致） |
+| `Mod-Alt-1` / `Mod-Alt-2` / `Mod-Alt-3` | 一级 / 二级 / 三级标题 | 工具栏可寻址范围一致（H1–H3） |
+| `Mod-Alt-4` / `Mod-Alt-5` | 四级 / 五级标题 | 仅快捷键支持，不接入命令目录（`EditorCommandId` 只到 heading3），因此工具栏和高亮态不会显示 H4/H5，但渲染与 markdown 输出均正常 |
 | `Tab` / `Shift-Tab` | 列表项缩进 / 取消缩进 | 已有实现，非本次新增 |
 | `Escape` | 编辑器失焦 | 已有实现，非本次新增 |
 | `Mod-Z` / `Mod-Shift-Z` | 撤销 / 重做 | CodeMirror `historyKeymap` 自带 |

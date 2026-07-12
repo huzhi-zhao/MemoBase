@@ -9,7 +9,7 @@
 #
 set -euo pipefail
 
-REPO_URL="${REPO_URL:-https://github.com/jimmy-zhz/memos.git}"
+REPO_URL="${REPO_URL:-https://github.com/huzhi-zhao/MemoBase.git}"
 BRANCH="${BRANCH:-main}"
 TARGET_DIR="${TARGET_DIR:-memos}"
 

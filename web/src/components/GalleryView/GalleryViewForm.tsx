@@ -39,6 +39,7 @@ interface CardFieldState {
 interface BlockDraft {
   description: string;
   scopeType: "folder" | "tag" | "property";
+  folderPath: string;
   tag: string;
   propertyFilters: GalleryPropertyFilter[];
   sort: GallerySort;
@@ -66,6 +67,7 @@ function toDraft(block: GalleryBlock): BlockDraft {
   return {
     description: block.description ?? "",
     scopeType: block.scope.type,
+    folderPath: block.scope.type === "folder" ? (block.scope.path ?? "") : "",
     tag: block.scope.type === "tag" ? block.scope.tag : "",
     propertyFilters: block.scope.type === "property" ? block.scope.filters : [],
     sort: block.sort,
@@ -85,7 +87,7 @@ function fromDraft(draft: BlockDraft): GalleryBlock {
       ? { type: "tag", tag: draft.tag.trim() }
       : draft.scopeType === "property"
         ? { type: "property", filters: cleanedFilters(draft) }
-        : { type: "folder" };
+        : { type: "folder", path: draft.folderPath.trim() || undefined };
   return {
     description: draft.description.trim() ? draft.description : undefined,
     scope,
@@ -196,6 +198,14 @@ const GalleryBlockForm = ({
               {t("gallery.scope-folder")}
             </Label>
           </div>
+          {draft.scopeType === "folder" && (
+            <Input
+              className="ml-6"
+              placeholder={t("gallery.folder-path-placeholder")}
+              value={draft.folderPath}
+              onChange={(e) => onChange({ folderPath: e.target.value })}
+            />
+          )}
           <div className="flex items-center gap-2">
             <RadioGroupItem value="tag" id={`scope-tag-${index}`} />
             <Label htmlFor={`scope-tag-${index}`} className="font-normal cursor-pointer">

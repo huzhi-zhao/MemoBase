@@ -111,7 +111,12 @@ const GalleryBlockView = ({ block, memo, openDoc }: BlockProps) => {
   const docs = useMemo(() => {
     let list = (data?.memos ?? []).filter((m) => m.name !== memo.name && m.docType !== Memo_DocType.VIEW);
     if (block.scope.type === "folder") {
-      list = list.filter((m) => m.workspace === memo.workspace && m.folderPath === memo.folderPath);
+      const basePath = (block.scope.path?.trim() || memo.folderPath).replace(/^\/+|\/+$/g, "");
+      list = list.filter(
+        (m) =>
+          m.workspace === memo.workspace &&
+          (basePath === "" || m.folderPath === basePath || m.folderPath.startsWith(`${basePath}/`)),
+      );
     } else if (block.scope.type === "property") {
       const filters = block.scope.filters;
       list = list.filter((m) => matchesPropertyFilters(propertyMap(m.content), filters));

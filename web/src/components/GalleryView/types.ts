@@ -18,9 +18,17 @@ export interface GalleryPropertyFilter {
 }
 
 // Which documents a gallery block shows. Exactly one of three mutually
-// exclusive modes: the view doc's own folder, a tag, or a set of property
-// equality conditions (ANDed together).
-export type GalleryScope = { type: "folder" } | { type: "tag"; tag: string } | { type: "property"; filters: GalleryPropertyFilter[] };
+// exclusive modes: a folder (defaulting to the view doc's own folder), a tag,
+// or a set of property equality conditions (ANDed together).
+//
+// `path` is a slash-separated path relative to the knowledge base root. When
+// omitted (or empty), the folder defaults to the view document's own folder.
+// In both cases the scope includes documents in that folder and all of its
+// subfolders.
+export type GalleryScope =
+  | { type: "folder"; path?: string }
+  | { type: "tag"; tag: string }
+  | { type: "property"; filters: GalleryPropertyFilter[] };
 
 export type GalleryBuiltinSort = "updated_desc" | "updated_asc" | "created_desc" | "created_asc" | "title_asc";
 
@@ -91,9 +99,12 @@ function parsePropertyFilters(raw: unknown): GalleryPropertyFilter[] {
 
 function parseScope(raw: unknown): GalleryScope {
   if (raw && typeof raw === "object") {
-    const scope = raw as { type?: unknown; tag?: unknown; filters?: unknown };
+    const scope = raw as { type?: unknown; tag?: unknown; filters?: unknown; path?: unknown };
     if (scope.type === "tag" && typeof scope.tag === "string") return { type: "tag", tag: scope.tag };
     if (scope.type === "property") return { type: "property", filters: parsePropertyFilters(scope.filters) };
+    if (scope.type === "folder" && typeof scope.path === "string" && scope.path.trim()) {
+      return { type: "folder", path: scope.path.trim() };
+    }
   }
   return { type: "folder" };
 }

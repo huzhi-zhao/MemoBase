@@ -1,4 +1,25 @@
-# 4. Editor Keyboard Shortcuts
+# 4. Markdown Editor Optimization 
+
+## 4.1  Callout
+
+```markdown
+
+> [!NOTE] this is a note
+
+> [!INFO] info
+
+> [!TIP]  tip
+
+> [!ERROR] error
+
+> [!WARNING] this is warning
+
+> [!IMPORTANT(📜)] this is a piece of important information , with a customed icon.
+
+> [!CAUTION] this is caution
+
+```
+## 4.2 Keyboard Shortcuts
 
 The home-page editor (`MemoEditor`) is built on CodeMirror 6 and provides
 Notion / Obsidian–style formatting shortcuts. Throughout this page, **`Mod`**

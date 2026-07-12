@@ -2,7 +2,7 @@ import { useRef } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useUpdateMemo } from "@/hooks/useMemoQueries";
 import { toggleTaskAtIndex } from "@/utils/markdown-manipulation";
-import { useMemoViewContext, useMemoViewDerived } from "../MemoView/MemoViewContext";
+import { useMemoViewContextOptional } from "../MemoView/MemoViewContext";
 import { TASK_LIST_ITEM_CLASS } from "./constants";
 import type { ReactMarkdownProps } from "./markdown/types";
 
@@ -11,8 +11,12 @@ interface TaskListItemProps extends React.InputHTMLAttributes<HTMLInputElement>,
 }
 
 export const TaskListItem: React.FC<TaskListItemProps> = ({ checked, node: _node, ...props }) => {
-  const { memo } = useMemoViewContext();
-  const { readonly } = useMemoViewDerived();
+  // MemoContent can render outside a MemoView (e.g. the Notebook single-document
+  // preview provides no MemoViewContext). Fall back to a read-only checkbox there
+  // instead of crashing the whole document render.
+  const memoViewContext = useMemoViewContextOptional();
+  const memo = memoViewContext?.memo;
+  const readonly = memoViewContext?.readonly ?? true;
   const checkboxRef = useRef<HTMLButtonElement>(null);
   const { mutate: updateMemo } = useUpdateMemo();
 

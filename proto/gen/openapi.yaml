@@ -3642,10 +3642,6 @@ components:
                     description: |-
                         A token that can be sent as `page_token` to retrieve the next page.
                          If this field is omitted, there are no subsequent pages.
-                totalSize:
-                    type: integer
-                    description: The total count of attachments (may be approximate).
-                    format: int32
         ListIdentityProvidersResponse:
             type: object
             properties:
@@ -3684,10 +3680,6 @@ components:
                 nextPageToken:
                     type: string
                     description: A token for the next page of results.
-                totalSize:
-                    type: integer
-                    description: The total count of comments.
-                    format: int32
         ListMemoHistoriesResponse:
             type: object
             properties:
@@ -3707,10 +3699,6 @@ components:
                 nextPageToken:
                     type: string
                     description: A token for the next page of results.
-                totalSize:
-                    type: integer
-                    description: The total count of reactions.
-                    format: int32
         ListMemoRelationsResponse:
             type: object
             properties:
@@ -3754,10 +3742,6 @@ components:
                 nextPageToken:
                     type: string
                     description: A token for the next page of results.
-                totalSize:
-                    type: integer
-                    description: The total count of personal access tokens.
-                    format: int32
         ListShortcutsResponse:
             type: object
             properties:
@@ -3788,10 +3772,6 @@ components:
                     description: |-
                         A token that can be sent as `page_token` to retrieve the next page.
                          If this field is omitted, there are no subsequent pages.
-                totalSize:
-                    type: integer
-                    description: The total count of settings (may be approximate).
-                    format: int32
             description: Response message for ListUserSettings method.
         ListUserWebhooksResponse:
             type: object
@@ -3814,10 +3794,6 @@ components:
                     description: |-
                         A token that can be sent as `page_token` to retrieve the next page.
                          If this field is omitted, there are no subsequent pages.
-                totalSize:
-                    type: integer
-                    description: The total count of users (may be approximate).
-                    format: int32
         ListWorkspacesResponse:
             type: object
             properties:

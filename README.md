@@ -61,6 +61,7 @@ The [**User Manual**](./docs/manual/README.md) covers every added feature:
 1. [Knowledge Base & Hierarchy](./docs/manual/01-knowledge-base.md)
 2. [Rich Documents & Media](./docs/manual/02-rich-documents.md) (HTML, PDF, inline media, S3 storage & backup)
 3. [Gallery Views](./docs/manual/03-gallery-views.md)
+4. [Editor Keyboard Shortcuts](./docs/manual/04-editor-shortcuts.md) (Notion / Obsidian–style formatting shortcuts)
 
 Design and requirement docs for each feature live under [`docs/plans/`](./docs/plans/).
 

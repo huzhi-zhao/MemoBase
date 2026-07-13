@@ -201,3 +201,15 @@ export function parseFrontmatter(content: string): ParsedContent {
 export function hasFrontmatter(content: string): boolean {
   return FRONTMATTER_RE.test(content.replace(/\r\n/g, "\n"));
 }
+
+/**
+ * Splits a leading frontmatter block off, returning the raw inner text (without
+ * the `---` delimiters) and the remaining body. Unlike parseFrontmatter this
+ * preserves the frontmatter verbatim, so it can round-trip through an editor.
+ * When there is no frontmatter, `frontmatter` is "" and `body` is the original.
+ */
+export function splitFrontmatter(content: string): { frontmatter: string; body: string } {
+  const match = FRONTMATTER_RE.exec(content.replace(/\r\n/g, "\n"));
+  if (!match) return { frontmatter: "", body: content };
+  return { frontmatter: match[1] ?? "", body: match[2] ?? "" };
+}

@@ -1,3 +1,5 @@
+import { splitFrontmatter } from "@/utils/frontmatter";
+
 // Structured configuration stored as the content of a VIEW document.
 // The content holds ONLY this JSON (plus optional markdown intro fields inside
 // it) — never HTML or rendered output. Every view block is rendered live from
@@ -66,6 +68,8 @@ export interface GalleryCardFields {
 export interface GalleryBlock {
   /** Optional markdown intro rendered above this block's cards. */
   description?: string;
+  /** Optional markdown note rendered below this block's cards. */
+  footer?: string;
   scope: GalleryScope;
   sort: GallerySort;
   cover: GalleryCoverRule;
@@ -75,6 +79,12 @@ export interface GalleryBlock {
 export interface GalleryViewConfig {
   viewType: "gallery";
   blocks: GalleryBlock[];
+  /**
+   * Raw YAML frontmatter (inner text, no `---` delimiters) stored ahead of the
+   * config JSON in the document content. Gives VIEW documents their own
+   * properties, so a gallery can filter/sort/reference them like any other doc.
+   */
+  frontmatter?: string;
 }
 
 export const DEFAULT_CARD_FIELDS: GalleryCardFields = {
@@ -142,6 +152,7 @@ function normalizeCover(raw: unknown): GalleryCoverRule {
 function parseBlock(raw: unknown): GalleryBlock {
   const b = (raw ?? {}) as {
     description?: unknown;
+    footer?: unknown;
     scope?: unknown;
     sort?: unknown;
     cover?: unknown;
@@ -149,6 +160,7 @@ function parseBlock(raw: unknown): GalleryBlock {
   };
   return {
     description: typeof b.description === "string" && b.description.trim() ? b.description : undefined,
+    footer: typeof b.footer === "string" && b.footer.trim() ? b.footer : undefined,
     scope: parseScope(b.scope),
     sort: normalizeSort(b.sort),
     cover: normalizeCover(b.cover),
@@ -167,19 +179,22 @@ function parseBlock(raw: unknown): GalleryBlock {
  */
 export function parseGalleryViewConfig(content: string): GalleryViewConfig | undefined {
   if (!content.trim()) return undefined;
+  // The config JSON lives in the body, after any leading YAML frontmatter block.
+  const { frontmatter, body } = splitFrontmatter(content);
+  if (!body.trim()) return undefined;
   try {
-    const raw = JSON.parse(content);
+    const raw = JSON.parse(body);
     if (!raw || typeof raw !== "object" || raw.viewType !== "gallery") return undefined;
-    if (Array.isArray(raw.blocks)) {
-      return { viewType: "gallery", blocks: raw.blocks.map(parseBlock) };
-    }
-    // Legacy single-config shape: treat the whole object as one block.
-    return { viewType: "gallery", blocks: [parseBlock(raw)] };
+    // Legacy single-config shape (no `blocks` array): treat the whole object as one block.
+    const blocks = Array.isArray(raw.blocks) ? raw.blocks.map(parseBlock) : [parseBlock(raw)];
+    return { viewType: "gallery", blocks, frontmatter: frontmatter.trim() ? frontmatter : undefined };
   } catch {
     return undefined;
   }
 }
 
 export function serializeGalleryViewConfig(config: GalleryViewConfig): string {
-  return JSON.stringify(config, null, 2);
+  const json = JSON.stringify({ viewType: config.viewType, blocks: config.blocks }, null, 2);
+  const fm = config.frontmatter?.trim();
+  return fm ? `---\n${fm}\n---\n${json}` : json;
 }

@@ -38,6 +38,7 @@ interface CardFieldState {
 // options never loses typed input; converted to a GalleryBlock on save.
 interface BlockDraft {
   description: string;
+  footer: string;
   scopeType: "folder" | "tag" | "property";
   folderPath: string;
   tag: string;
@@ -66,6 +67,7 @@ function fromCardFieldState(state: CardFieldState): GalleryCardField {
 function toDraft(block: GalleryBlock): BlockDraft {
   return {
     description: block.description ?? "",
+    footer: block.footer ?? "",
     scopeType: block.scope.type,
     folderPath: block.scope.type === "folder" ? (block.scope.path ?? "") : "",
     tag: block.scope.type === "tag" ? block.scope.tag : "",
@@ -90,6 +92,7 @@ function fromDraft(draft: BlockDraft): GalleryBlock {
         : { type: "folder", path: draft.folderPath.trim() || undefined };
   return {
     description: draft.description.trim() ? draft.description : undefined,
+    footer: draft.footer.trim() ? draft.footer : undefined,
     scope,
     sort: draft.sort,
     cover: draft.cover,
@@ -331,6 +334,16 @@ const GalleryBlockForm = ({
 
       {renderCardFieldRow(t("gallery.card-primary-label"), draft.primary, "primary", false)}
       {renderCardFieldRow(t("gallery.card-secondary-label"), draft.secondary, "secondary", true)}
+
+      <div className="flex flex-col gap-1.5">
+        <Label>{t("gallery.footer-label")}</Label>
+        <Textarea
+          rows={3}
+          placeholder={t("gallery.footer-placeholder")}
+          value={draft.footer}
+          onChange={(e) => onChange({ footer: e.target.value })}
+        />
+      </div>
     </div>
   );
 };
@@ -339,7 +352,9 @@ const GalleryBlockForm = ({
 // bottom toolbar's "+" inserts another, and Save/Cancel are pinned bottom-right.
 const GalleryViewForm = ({ content, onSave, onCancel }: Props) => {
   const t = useTranslate();
-  const [blocks, setBlocks] = useState<BlockDraft[]>(() => (parseGalleryViewConfig(content)?.blocks ?? []).map(toDraft));
+  const initial = parseGalleryViewConfig(content);
+  const [blocks, setBlocks] = useState<BlockDraft[]>(() => (initial?.blocks ?? []).map(toDraft));
+  const [frontmatter, setFrontmatter] = useState(() => initial?.frontmatter ?? "");
 
   const updateBlock = (index: number, patch: Partial<BlockDraft>) => {
     setBlocks((prev) => prev.map((b, i) => (i === index ? { ...b, ...patch } : b)));
@@ -348,7 +363,9 @@ const GalleryViewForm = ({ content, onSave, onCancel }: Props) => {
   const addGalleryBlock = () => setBlocks((prev) => [...prev, toDraft(DEFAULT_GALLERY_BLOCK)]);
 
   const handleSave = () => {
-    onSave(serializeGalleryViewConfig({ viewType: "gallery", blocks: blocks.map(fromDraft) }));
+    onSave(
+      serializeGalleryViewConfig({ viewType: "gallery", blocks: blocks.map(fromDraft), frontmatter: frontmatter.trim() || undefined }),
+    );
   };
 
   const saveDisabled = blocks.length === 0 || blocks.some(blockInvalid);
@@ -357,6 +374,17 @@ const GalleryViewForm = ({ content, onSave, onCancel }: Props) => {
     <div className="h-full flex flex-col">
       <div className="flex-1 overflow-y-auto px-6 py-4">
         <div className="w-full max-w-lg mx-auto flex flex-col gap-6">
+          <div className="flex flex-col gap-1.5">
+            <Label>{t("gallery.properties-label")}</Label>
+            <Textarea
+              rows={4}
+              className="font-mono text-sm"
+              placeholder={t("gallery.properties-placeholder")}
+              value={frontmatter}
+              onChange={(e) => setFrontmatter(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">{t("gallery.properties-hint")}</p>
+          </div>
           {blocks.length === 0 ? (
             <div className="text-sm text-muted-foreground text-center py-10">{t("gallery.empty-editor")}</div>
           ) : (

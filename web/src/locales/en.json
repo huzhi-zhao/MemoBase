@@ -991,6 +991,9 @@
     "cover-image-url-placeholder": "Image URL"
   },
   "gallery": {
+    "properties-label": "Properties (optional)",
+    "properties-placeholder": "title: My gallery\ntags: [index, gallery]\nstatus: published",
+    "properties-hint": "YAML frontmatter for this view, one \"key: value\" per line. Lets other galleries filter, sort and reference this view.",
     "style-gallery": "Gallery view",
     "insert": "Insert",
     "block-title": "Gallery {{index}}",
@@ -998,6 +1001,8 @@
     "empty-editor": "No views yet. Use the + button below to insert a gallery view.",
     "description-label": "Intro (markdown, optional)",
     "description-placeholder": "Shown above the gallery…",
+    "footer-label": "Note (markdown, optional)",
+    "footer-placeholder": "Shown below the gallery — guidance or context for these documents…",
     "scope-label": "Scope",
     "scope-folder": "Documents in this folder",
     "folder-path-placeholder": "Folder path relative to knowledge base root (optional, defaults to this folder)",

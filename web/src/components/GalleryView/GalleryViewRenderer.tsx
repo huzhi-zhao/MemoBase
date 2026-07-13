@@ -109,13 +109,13 @@ const GalleryBlockView = ({ block, memo, openDoc }: BlockProps) => {
   const { data, isLoading } = useMemos({ pageSize: 1000, state: State.NORMAL, filter: scopeFilter });
 
   const docs = useMemo(() => {
-    let list = (data?.memos ?? []).filter((m) => m.name !== memo.name && m.docType !== Memo_DocType.VIEW);
+    // VIEW docs are eligible too: they now carry frontmatter properties, so a
+    // gallery can filter, sort and reference other views like any other doc.
+    let list = (data?.memos ?? []).filter((m) => m.name !== memo.name);
     if (block.scope.type === "folder") {
       const basePath = (block.scope.path?.trim() || memo.folderPath).replace(/^\/+|\/+$/g, "");
       list = list.filter(
-        (m) =>
-          m.workspace === memo.workspace &&
-          (basePath === "" || m.folderPath === basePath || m.folderPath.startsWith(`${basePath}/`)),
+        (m) => m.workspace === memo.workspace && (basePath === "" || m.folderPath === basePath || m.folderPath.startsWith(`${basePath}/`)),
       );
     } else if (block.scope.type === "property") {
       const filters = block.scope.filters;
@@ -164,6 +164,7 @@ const GalleryBlockView = ({ block, memo, openDoc }: BlockProps) => {
           })}
         </div>
       )}
+      {block.footer && <MemoContent content={block.footer} memoName={memo.name} />}
     </div>
   );
 };

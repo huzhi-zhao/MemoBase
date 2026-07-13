@@ -5,8 +5,10 @@ import { isHtmlAttachment, isPdfAttachment } from "@/components/MemoMetadata/Att
 import { PdfDocumentView } from "@/components/PdfViewer/PdfDocumentView";
 import { attachmentNamePrefix } from "@/helpers/resource-names";
 import { useAttachment } from "@/hooks/useAttachmentQueries";
+import { useMemo as useMemoQuery } from "@/hooks/useMemoQueries";
 import { cn } from "@/lib/utils";
 import { getAttachmentUrl } from "@/utils/attachment";
+import { Visibility } from "@/types/proto/api/v1/memo_service_pb";
 import { useTranslate } from "@/utils/i18n";
 
 // Header hides once the user has scrolled down past this many px from their last
@@ -16,8 +18,11 @@ const HEADER_HIDE_THRESHOLD = 60;
 const BACK_TO_TOP_THRESHOLD = 300;
 
 // Standalone, unauthenticated-chrome page opened in a new tab to preview a PDF or
-// HTML attachment without forcing a download. HTML is rendered in a sandboxed
-// iframe (no allow-scripts) so uploaded HTML can never execute in the app origin.
+// HTML attachment without forcing a download. HTML runs in a sandboxed iframe:
+// scripts only execute while the parent memo is still PRIVATE (creator-only, so the
+// uploader is the only possible victim), and even then without allow-same-origin so
+// the script can't reach the app's cookies/storage. Any shared memo (PROTECTED/PUBLIC)
+// falls back to allow-same-origin-only so uploaded HTML can never execute for viewers.
 const AttachmentPreview = () => {
   const t = useTranslate();
   const params = useParams();
@@ -36,6 +41,12 @@ const AttachmentPreview = () => {
 
   const isHtml = attachment ? isHtmlAttachment(attachment) : false;
   const isPdf = attachment ? isPdfAttachment(attachment) : false;
+
+  const { data: parentMemo } = useMemoQuery(attachment?.memo ?? "", { enabled: !!attachment?.memo && isHtml });
+  // Scripts only run for HTML attachments on memos that are still PRIVATE (creator-only).
+  // Anything shared (PROTECTED/PUBLIC) stays script-free to prevent stored XSS from
+  // reaching other viewers. See AttachmentPreview iframe below.
+  const isPrivate = parentMemo?.visibility === Visibility.PRIVATE;
 
   useEffect(() => {
     if (!attachment) {
@@ -103,18 +114,20 @@ const AttachmentPreview = () => {
 
   return (
     <div className="relative h-screen w-screen overflow-hidden">
-      <div
-        className={cn(
-          "absolute inset-x-0 top-0 z-10 flex h-11 items-center justify-between gap-3 border-b border-border bg-background px-4 py-2 transition-transform duration-300",
-          headerHidden && "-translate-y-full",
-        )}
-      >
-        <span className="truncate text-sm font-medium text-foreground" title={attachment.filename}>
-          {attachment.filename}
-        </span>
-        <div ref={toolbarSlotRef} className="flex shrink-0 items-center gap-1" />
-      </div>
-      <div ref={scrollContainerRef} onScroll={handleScroll} className="h-full overflow-y-auto pt-11">
+      {!isHtml && (
+        <div
+          className={cn(
+            "absolute inset-x-0 top-0 z-10 flex h-11 items-center justify-between gap-3 border-b border-border bg-background px-4 py-2 transition-transform duration-300",
+            headerHidden && "-translate-y-full",
+          )}
+        >
+          <span className="truncate text-sm font-medium text-foreground" title={attachment.filename}>
+            {attachment.filename}
+          </span>
+          <div ref={toolbarSlotRef} className="flex shrink-0 items-center gap-1" />
+        </div>
+      )}
+      <div ref={scrollContainerRef} onScroll={handleScroll} className={cn("h-full overflow-y-auto", !isHtml && "pt-11")}>
         {isPdf && toolbarSlot && (
           <PdfDocumentView
             url={getAttachmentUrl(attachment)}
@@ -129,20 +142,27 @@ const AttachmentPreview = () => {
           (htmlError ? (
             <div className="flex h-full items-center justify-center text-sm text-destructive">{t("attachment-preview.unavailable")}</div>
           ) : (
-            <iframe title={attachment.filename} srcDoc={htmlContent ?? ""} sandbox="allow-same-origin" className="h-full w-full border-0" />
+            <iframe
+              title={attachment.filename}
+              srcDoc={htmlContent ?? ""}
+              sandbox={isPrivate ? "allow-scripts" : "allow-same-origin"}
+              className="h-full w-full border-0"
+            />
           ))}
       </div>
-      <button
-        type="button"
-        onClick={scrollToTop}
-        aria-label={t("attachment-preview.back-to-top")}
-        className={cn(
-          "absolute bottom-6 right-6 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-md transition-opacity duration-200 hover:bg-accent",
-          showBackToTop ? "opacity-100" : "pointer-events-none opacity-0",
-        )}
-      >
-        <ArrowUpIcon className="h-5 w-5" />
-      </button>
+      {!isHtml && (
+        <button
+          type="button"
+          onClick={scrollToTop}
+          aria-label={t("attachment-preview.back-to-top")}
+          className={cn(
+            "absolute bottom-6 right-6 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-md transition-opacity duration-200 hover:bg-accent",
+            showBackToTop ? "opacity-100" : "pointer-events-none opacity-0",
+          )}
+        >
+          <ArrowUpIcon className="h-5 w-5" />
+        </button>
+      )}
     </div>
   );
 };

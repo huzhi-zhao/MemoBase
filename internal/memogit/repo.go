@@ -31,7 +31,9 @@ func FindRoot(dir string) (string, error) {
 // sync baseline is tracked.
 func writeGitignore(root string) error {
 	content := "# memogit: never commit the PAT; keep the sync baseline tracked.\n" +
-		MetaDir + "/" + ConfigFile + "\n"
+		MetaDir + "/" + ConfigFile + "\n" +
+		"# conflict sidecars (server version for IDE merge) are transient.\n" +
+		"*" + conflictSuffix + "\n"
 	return os.WriteFile(filepath.Join(root, ".gitignore"), []byte(content), 0o644)
 }
 
@@ -55,6 +57,20 @@ func GitInitIfNeeded(root string) error {
 		return err
 	}
 	return nil
+}
+
+// GitStatusPorcelain returns the number of entries in `git status --porcelain`
+// (uncommitted working-tree changes), or 0 if git errors.
+func GitStatusPorcelain(root string) int {
+	out, err := git(root, "status", "--porcelain")
+	if err != nil {
+		return 0
+	}
+	out = strings.TrimSpace(out)
+	if out == "" {
+		return 0
+	}
+	return len(strings.Split(out, "\n"))
 }
 
 // GitCommitAll stages everything and commits with msg. It is a no-op (returns

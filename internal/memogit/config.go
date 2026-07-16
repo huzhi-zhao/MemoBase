@@ -19,7 +19,8 @@ const (
 	ConfigFile = "config.yaml"
 	// StateFile records the last-synced baseline per memo.
 	StateFile = "sync-state.json"
-	// WorkDir holds the exported note files.
+	// WorkDir is the fallback name for the document subfolder when the
+	// workspace has no usable title.
 	WorkDir = "work"
 
 	// EnvServer and EnvToken override the config file (useful for CI).

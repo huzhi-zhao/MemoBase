@@ -95,10 +95,10 @@ func TestCanonicalHashIgnoresTrailingNewlines(t *testing.T) {
 }
 
 func TestScopedFilter(t *testing.T) {
-	if got := scopedFilter("alice", ""); got != `creator == "alice"` {
+	if got := scopedFilter("alice", ""); got != `creator == "users/alice"` {
 		t.Errorf("no extra: got %q", got)
 	}
-	if got := scopedFilter("alice", `"work" in tags`); got != `(creator == "alice") && ("work" in tags)` {
+	if got := scopedFilter("alice", `"work" in tags`); got != `(creator == "users/alice") && ("work" in tags)` {
 		t.Errorf("with extra: got %q", got)
 	}
 }

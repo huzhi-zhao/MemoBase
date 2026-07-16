@@ -1,6 +1,7 @@
 package memogit
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -14,11 +15,26 @@ import (
 // scopedFilter combines the implicit "own memos only" scoping with an optional
 // extra CEL clause from config.
 func scopedFilter(username, extra string) string {
-	base := fmt.Sprintf("creator == %s", strconv.Quote(username))
+	// The `creator` CEL field compares against the user's resource name
+	// ("users/<username>"), not the bare username, so scope with that form.
+	base := fmt.Sprintf("creator == %s", strconv.Quote("users/"+username))
 	if strings.TrimSpace(extra) == "" {
 		return base
 	}
 	return fmt.Sprintf("(%s) && (%s)", base, extra)
+}
+
+// ContentRoot returns the directory under the checkout root where document
+// files live: a subfolder named after the workspace, so the repo root holds
+// only metadata (.memogit, .git, .gitignore) and each knowledge base's notes
+// sit under their own named folder. Falls back to WorkDir if the title is
+// empty or sanitizes to nothing. All sync-state paths are relative to this.
+func ContentRoot(root string, cfg *Config) string {
+	dir := sanitizeSegment(cfg.WorkspaceTitle)
+	if dir == "" {
+		dir = WorkDir
+	}
+	return filepath.Join(root, dir)
 }
 
 // writeFile writes raw content to <root>/<relPath>, creating parent dirs and
@@ -52,14 +68,58 @@ func memoState(m *v1pb.Memo) MemoState {
 	}
 }
 
-// exportMemo writes one memo to disk (verbatim content, or a PDF stub) and
-// returns its baseline MemoState. Returns the relative path for logging.
-func exportMemo(root string, m *v1pb.Memo) (MemoState, error) {
+// exportMemo downloads the memo's attachments, writes the doc file (verbatim
+// content, or a PDF stub pointing at the downloaded bytes), and returns its
+// baseline MemoState plus the number of attachments freshly downloaded. prev is
+// the previous baseline for this memo (nil on first export), used to skip
+// re-downloading unchanged attachments.
+func exportMemo(ctx context.Context, client *Client, contentRoot string, m *v1pb.Memo, prev *MemoState) (MemoState, int, error) {
+	var prevRefs []AttachmentRef
+	if prev != nil {
+		prevRefs = prev.Attachments
+	}
+	refs, n, err := downloadMemoAttachments(ctx, client, contentRoot, m, prevRefs)
+	if err != nil {
+		return MemoState{}, 0, err
+	}
+	ms, err := writeMemoDoc(contentRoot, m, refs)
+	if err != nil {
+		return MemoState{}, 0, err
+	}
+	return ms, n, nil
+}
+
+// writeMemoDoc writes a memo's doc file (verbatim content, or a PDF stub) using
+// the given downloaded attachment refs, and returns its baseline MemoState. The
+// attachment download is done by the caller; this is the pure file-writing step
+// (also the unit-test seam that needs no server).
+func writeMemoDoc(contentRoot string, m *v1pb.Memo, refs []AttachmentRef) (MemoState, error) {
 	ms := memoState(m)
-	if err := writeFile(root, ms.Path, FileContent(m)); err != nil {
+	ms.Attachments = refs
+	if err := writeFile(contentRoot, ms.Path, FileContent(m, refs)); err != nil {
 		return MemoState{}, err
 	}
 	return ms, nil
+}
+
+// relocateMemo is like exportMemo but for an already-tracked memo whose file may
+// have moved (folder_path/title changed): it downloads attachments, writes the
+// new file, and removes the old one. Returns the new baseline + downloads.
+func relocateMemo(ctx context.Context, client *Client, contentRoot, oldRel string, m *v1pb.Memo, prev *MemoState) (MemoState, int, error) {
+	var prevRefs []AttachmentRef
+	if prev != nil {
+		prevRefs = prev.Attachments
+	}
+	refs, n, err := downloadMemoAttachments(ctx, client, contentRoot, m, prevRefs)
+	if err != nil {
+		return MemoState{}, 0, err
+	}
+	ms := memoState(m)
+	ms.Attachments = refs
+	if err := relocateAndWrite(contentRoot, oldRel, ms.Path, FileContent(m, refs)); err != nil {
+		return MemoState{}, 0, err
+	}
+	return ms, n, nil
 }
 
 // relocateAndWrite writes content to newRel, and if the file moved from oldRel

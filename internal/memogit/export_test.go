@@ -28,7 +28,7 @@ func TestExportMemoSidecarModel(t *testing.T) {
 	content := "---\nstatus: done\n---\n# Hello\n\nbody"
 	m := mkMemo("abc", "garden/notes", "My Note", content, v1pb.Memo_MARKDOWN)
 
-	ms, err := exportMemo(root, m)
+	ms, err := writeMemoDoc(root, m, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,7 +59,7 @@ func TestExportPdfWritesStub(t *testing.T) {
 	m.Attachments = []*v1pb.Attachment{
 		{Name: "attachments/a1", Filename: "paper.pdf", Type: "application/pdf"},
 	}
-	ms, err := exportMemo(root, m)
+	ms, err := writeMemoDoc(root, m, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -3,11 +3,14 @@ package memogit
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/fieldmaskpb"
 
 	v1pb "github.com/usememos/memos/proto/gen/api/v1"
 	"github.com/usememos/memos/proto/gen/api/v1/apiv1connect"
@@ -19,6 +22,12 @@ type Client struct {
 	memo      apiv1connect.MemoServiceClient
 	auth      apiv1connect.AuthServiceClient
 	workspace apiv1connect.WorkspaceServiceClient
+
+	// baseURL and token back the raw HTTP calls (attachment download) that go
+	// through the /file/ route rather than the Connect API.
+	baseURL string
+	token   string
+	http    *http.Client
 }
 
 // patInterceptor injects `Authorization: Bearer <token>` on every request.
@@ -54,6 +63,9 @@ func NewClient(cfg *Config) *Client {
 		memo:      apiv1connect.NewMemoServiceClient(httpClient, baseURL, opts),
 		auth:      apiv1connect.NewAuthServiceClient(httpClient, baseURL, opts),
 		workspace: apiv1connect.NewWorkspaceServiceClient(httpClient, baseURL, opts),
+		baseURL:   baseURL,
+		token:     cfg.Token,
+		http:      httpClient,
 	}
 }
 
@@ -136,4 +148,82 @@ func (c *Client) ListAllMemos(ctx context.Context, workspace, filter string) ([]
 		}
 	}
 	return out, nil
+}
+
+// GetMemo fetches a single memo by uid ("memos/{uid}"). Used by push to read the
+// server's current state for conflict detection.
+func (c *Client) GetMemo(ctx context.Context, uid string) (*v1pb.Memo, error) {
+	resp, err := c.memo.GetMemo(ctx, connect.NewRequest(&v1pb.GetMemoRequest{Name: "memos/" + uid}))
+	if err != nil {
+		return nil, fmt.Errorf("get memo %s: %w", uid, err)
+	}
+	return resp.Msg, nil
+}
+
+// CreateMemo creates a new memo from a local file and returns the server memo
+// (with its assigned uid/timestamps). workspace/folderPath/title/docType place
+// it in the knowledge base hierarchy; visibility defaults to PRIVATE.
+func (c *Client) CreateMemo(ctx context.Context, workspace, folderPath, title, docType, content string) (*v1pb.Memo, error) {
+	memo := &v1pb.Memo{
+		Content:    content,
+		Visibility: v1pb.Visibility_PRIVATE,
+		State:      v1pb.State_NORMAL,
+		Workspace:  workspace,
+		FolderPath: folderPath,
+		Title:      title,
+		DocType:    docTypeFromString(docType),
+	}
+	resp, err := c.memo.CreateMemo(ctx, connect.NewRequest(&v1pb.CreateMemoRequest{Memo: memo}))
+	if err != nil {
+		return nil, fmt.Errorf("create memo %q: %w", title, err)
+	}
+	return resp.Msg, nil
+}
+
+// UpdateMemoContent pushes new content to an existing memo, touching only the
+// content field (update_mask=[content]) so other attributes are preserved.
+func (c *Client) UpdateMemoContent(ctx context.Context, uid, content string) (*v1pb.Memo, error) {
+	req := &v1pb.UpdateMemoRequest{
+		Memo:       &v1pb.Memo{Name: "memos/" + uid, Content: content},
+		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"content"}},
+	}
+	resp, err := c.memo.UpdateMemo(ctx, connect.NewRequest(req))
+	if err != nil {
+		return nil, fmt.Errorf("update memo %s: %w", uid, err)
+	}
+	return resp.Msg, nil
+}
+
+// ArchiveMemo soft-deletes a memo by moving it to the ARCHIVED state
+// (update_mask=[state]). memogit never hard-deletes on the server.
+func (c *Client) ArchiveMemo(ctx context.Context, uid string) error {
+	req := &v1pb.UpdateMemoRequest{
+		Memo:       &v1pb.Memo{Name: "memos/" + uid, State: v1pb.State_ARCHIVED},
+		UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"state"}},
+	}
+	if _, err := c.memo.UpdateMemo(ctx, connect.NewRequest(req)); err != nil {
+		return fmt.Errorf("archive memo %s: %w", uid, err)
+	}
+	return nil
+}
+
+// DownloadAttachment fetches an attachment's raw bytes via the /file/ route,
+// which accepts the same PAT Bearer auth as the Connect API. attachmentName is
+// the resource name ("attachments/{uid}"); filename is the display filename.
+func (c *Client) DownloadAttachment(ctx context.Context, attachmentName, filename string) ([]byte, error) {
+	u := fmt.Sprintf("%s/file/%s/%s", c.baseURL, attachmentName, url.PathEscape(filename))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("download %s: %w", filename, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("download %s: server returned %s", filename, resp.Status)
+	}
+	return io.ReadAll(resp.Body)
 }

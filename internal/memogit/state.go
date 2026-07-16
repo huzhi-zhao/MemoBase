@@ -23,10 +23,32 @@ type MemoState struct {
 	Pinned bool `json:"pinned,omitempty"`
 	// Relations are related memo uids (read-only export in v1).
 	Relations []string `json:"relations,omitempty"`
+	// Attachments records the memo's downloaded attachments (read-only in v1:
+	// downloaded for LLM/context, never uploaded back).
+	Attachments []AttachmentRef `json:"attachments,omitempty"`
 	// UpdateTime is the server update_time at last sync (conflict detection).
 	UpdateTime time.Time `json:"update_time"`
 	// ContentHash is the server content hash at last sync.
 	ContentHash string `json:"content_hash"`
+	// ConflictServerHash is set while a document is in the conflict state
+	// (changed on both sides): it records the server content hash captured when
+	// the conflict was detected and a `<path>.remote` sidecar was written. It is
+	// cleared once the conflict is resolved (sidecar deleted and pushed) or the
+	// server version is adopted on pull. Empty means "no active conflict".
+	ConflictServerHash string `json:"conflict_server_hash,omitempty"`
+}
+
+// AttachmentRef records one downloaded attachment so pull can skip
+// already-downloaded bytes and the PDF stub can point at the local file.
+type AttachmentRef struct {
+	// Name is the resource name ("attachments/{uid}").
+	Name string `json:"name"`
+	// Filename is the display filename.
+	Filename string `json:"filename"`
+	// Size is the server-reported byte size at download time (change detection).
+	Size int64 `json:"size"`
+	// Path is the repo-relative local path of the downloaded bytes.
+	Path string `json:"path"`
 }
 
 // State is the .memogit/sync-state.json document.

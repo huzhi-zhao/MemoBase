@@ -26,7 +26,7 @@ func rootCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
-	root.AddCommand(loginCmd(), cloneCmd(), pullCmd())
+	root.AddCommand(loginCmd(), cloneCmd(), pullCmd(), pushCmd(), statusCmd())
 	return root
 }
 
@@ -103,6 +103,56 @@ func pullCmd() *cobra.Command {
 				return err
 			}
 			_, err = memogit.Pull(cmd.Context(), root, cfg, cmd.OutOrStdout())
+			return err
+		},
+	}
+	return cmd
+}
+
+func pushCmd() *cobra.Command {
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "push",
+		Short: "Sync local edits back to the server (create/update/archive); attachments are download-only",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cwd, err := os.Getwd()
+			if err != nil {
+				return err
+			}
+			root, err := memogit.FindRoot(cwd)
+			if err != nil {
+				return err
+			}
+			cfg, err := memogit.LoadConfig(root)
+			if err != nil {
+				return err
+			}
+			_, err = memogit.Push(cmd.Context(), root, cfg, dryRun, cmd.OutOrStdout())
+			return err
+		},
+	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the push plan without sending changes")
+	return cmd
+}
+
+func statusCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "status",
+		Short: "Show local/remote changes pending sync, plus local git working-tree state",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cwd, err := os.Getwd()
+			if err != nil {
+				return err
+			}
+			root, err := memogit.FindRoot(cwd)
+			if err != nil {
+				return err
+			}
+			cfg, err := memogit.LoadConfig(root)
+			if err != nil {
+				return err
+			}
+			_, err = memogit.Status(cmd.Context(), root, cfg, cmd.OutOrStdout())
 			return err
 		},
 	}

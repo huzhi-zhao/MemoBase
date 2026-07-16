@@ -1,6 +1,6 @@
 # memogit：本地知识库检出/同步 CLI 工具 — 需求与技术方案
 
-状态：阶段 1-3（login/clone/pull）已实现并本地实测跑通；阶段 4（push）待开发。
+状态：login/clone/pull/push/status 已实现并本地实测跑通（含附件单向下载、pull 删除对账）；待做见 [[03-implementation-notes]]。
 实现细节与联调记录见 [[03-implementation-notes]]，操作手册见 `docs/manual/05-memogit-cli.md`。
 **2026-07-16 重大修订**：对照 `docs/manual/` 的真实产品模型，把文件布局与元数据设计
 从"上游 Memos 的扁平 + tags 模型"改为本 fork 的

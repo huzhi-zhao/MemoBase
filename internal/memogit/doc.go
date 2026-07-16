@@ -53,6 +53,48 @@ func docTypeString(m *v1pb.Memo) string {
 	}
 }
 
+// docTypeFromString converts a MARKDOWN/HTML/PDF/VIEW string back to the proto
+// enum for push (CreateMemo). Unknown values default to MARKDOWN.
+func docTypeFromString(s string) v1pb.Memo_DocType {
+	switch s {
+	case "HTML":
+		return v1pb.Memo_HTML
+	case "PDF":
+		return v1pb.Memo_PDF
+	case "VIEW":
+		return v1pb.Memo_VIEW
+	default:
+		return v1pb.Memo_MARKDOWN
+	}
+}
+
+// docTypeFromExt derives a doc type from a repo-relative file path's extension,
+// inverting extForDocType. Order matters: the compound extensions (.pdf.md,
+// .view.json) must be checked before the plain ones.
+func docTypeFromExt(relPath string) string {
+	switch {
+	case strings.HasSuffix(relPath, ".pdf.md"):
+		return "PDF"
+	case strings.HasSuffix(relPath, ".view.json"):
+		return "VIEW"
+	case strings.HasSuffix(relPath, ".html"):
+		return "HTML"
+	default:
+		return "MARKDOWN"
+	}
+}
+
+// stripDocExt removes the doc-type extension from a filename, returning the
+// title stem. Mirrors docTypeFromExt / extForDocType.
+func stripDocExt(name string) string {
+	for _, ext := range []string{".pdf.md", ".view.json", ".html", ".md"} {
+		if strings.HasSuffix(name, ext) {
+			return strings.TrimSuffix(name, ext)
+		}
+	}
+	return name
+}
+
 // relationUIDs extracts the related memo uids for read-only export into
 // sync-state (v1 does not sync relations back).
 func relationUIDs(m *v1pb.Memo) []string {
@@ -68,25 +110,29 @@ func relationUIDs(m *v1pb.Memo) []string {
 // FileContent renders the local file bytes for a memo. Under the sidecar model
 // the file holds the memo's content verbatim (no memogit frontmatter), except
 // PDF documents which carry no editable body — for those we write a small
-// human-/AI-readable reference stub listing the backing attachments.
-func FileContent(m *v1pb.Memo) string {
+// human-/AI-readable reference stub pointing at the downloaded attachment bytes.
+// refs are the memo's downloaded attachments (may be nil).
+func FileContent(m *v1pb.Memo, refs []AttachmentRef) string {
 	if docTypeString(m) == "PDF" {
-		return pdfPlaceholder(m)
+		return pdfPlaceholder(m, refs)
 	}
 	return m.GetContent()
 }
 
-// pdfPlaceholder builds the stub body for a PDF document (no editable content).
-// Real byte download is deferred to the attachment-sync phase.
-func pdfPlaceholder(m *v1pb.Memo) string {
+// pdfPlaceholder builds the stub body for a PDF document (no editable content),
+// pointing at the local downloaded bytes so an LLM/reader can open them.
+func pdfPlaceholder(m *v1pb.Memo, refs []AttachmentRef) string {
 	var b strings.Builder
 	b.WriteString("<!-- memogit: PDF document (render-only, no editable body). ")
-	b.WriteString("The PDF bytes live in the attachment(s) below; download is handled by attachment sync. -->\n\n")
+	b.WriteString("Edits here are not synced; the real bytes are the attachment(s) below. -->\n\n")
 	fmt.Fprintf(&b, "# %s\n\n", m.GetTitle())
 	atts := m.GetAttachments()
 	if len(atts) == 0 {
 		b.WriteString("_(no attachment referenced)_\n")
 		return b.String()
+	}
+	if local := pdfLocalPath(refs); local != "" {
+		fmt.Fprintf(&b, "Local file: [`%s`](%s)\n\n", local, local)
 	}
 	b.WriteString("Attachments:\n")
 	for _, a := range atts {

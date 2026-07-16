@@ -1,6 +1,8 @@
 # memogit：实现说明与联调记录
 
-状态：阶段 1-3（login / clone / pull）已实现并本地实测跑通；阶段 4（push）待开发。
+状态：login / clone / pull / push / status 均已实现并本地实测跑通，含附件单向下载、
+pull 服务端删除对账、以及**冲突落地成 `.remote` sidecar 供 IDE 合并**；待做：附件上传、
+`commit` 透传。
 关联：[[01-memogit-cli]]（需求与方案，已按真实模型修订）、[[02-api-survey-and-estimate]]（API 调研）。
 
 本文档记录**实际写出来的东西**——代码结构、落地时做的关键决策、以及联调过程中踩到
@@ -14,10 +16,12 @@
 | `memogit login` | ✅ 已实现 | 写 server / token 到 `.memogit/config.yaml`（0600） |
 | `memogit clone [workspace-title]` | ✅ 已实现 | 全量导出 + git init + baseline commit |
 | `memogit pull` | ✅ 已实现 | 增量拉取 + 冲突检测 + commit |
-| `memogit push` | ⛔ 未实现 | 阶段 4，含删除→ARCHIVED、push 前冲突检查 |
-| `memogit status` | ⛔ 未实现 | 阶段 6 |
+| `memogit push [--dry-run]` | ✅ 已实现 | 新建→CreateMemo、修改→UpdateMemo(content)、删除→ARCHIVED、push 前冲突检查 |
+| `memogit status` | ✅ 已实现 | 本地/远端待同步双层展示 + git 工作区脏文件数 |
 | `memogit commit` | ⛔ 未实现 | 阶段 6，仅透传 `git commit` |
-| 附件同步 | ⛔ 未实现 | 阶段 5，含 `/file/` 路由 PAT 鉴权 spike |
+| pull 服务端删除对账 | ✅ 已实现 | 全量对账，删除/归档的文档本地移除（有本地改动则保留并提示） |
+| 附件下载（单向） | ✅ 已实现 | clone/pull 时下载附件字节到 `_attachments/`，PDF 字节落地；`/file/` 路由 PAT 鉴权已实测可行 |
+| 附件上传（本地→服务端） | ⛔ 未实现 | 后续；当前附件是只读下载 |
 
 ## 2. 代码结构
 
@@ -100,16 +104,92 @@ memogit 要连的是**后端端口**（8081），不是前端。定位办法：
 这是端口不对，不是 IPv6 问题。确认真实端口后用 `http://localhost:8081` 即可连上
 （IPv6 socket，`localhost`→`::1` 正常工作）。
 
-### 4.3 clone 返回 0 条 memo —— 疑似旧数据未关联 workspace（待确认）
-`clone Default` 鉴权/解析都成功，但导出 0 条。初步判断：`workspace_id` / `folder_path`
-/ `doc_type` 是本 fork 新加字段，实例里**迁移前创建的旧 memo 可能 `workspace_id` 为
-空/0**，不落在任何具名 workspace 下，因此按 `workspace=workspaces/{uid}` 过滤查不到。
+### 4.3 clone 返回 0 条 memo —— 真因是 creator filter 格式错（已修复）
+`clone Default` 鉴权/解析都成功，但导出 0 条。**当初"旧数据未关联 workspace"的猜测
+是错的**。用 curl 逐项二分定位：
+- 只带 `workspace` 过滤 → 有数据（17 条）。
+- 带 `creator == "James"`（memogit 拼的）→ **0 条**。
+- 带 `creator == "users/James"` → 有数据。
 
-**验证方法**（待补测）：
-- 不带 workspace、只带 `creator` filter 查 ListMemos，若有数据 → 实锤是 workspace
-  关联问题，非 memogit 逻辑错误。
-- 若确认，需要在 clone 增加"包含未分类文档 / 不限定 workspace"的模式，或先在服务端把
-  旧数据迁移到某个 workspace。此项作为待办跟进。
+根因：服务端 CEL 的 `creator` 字段比对的是**资源名** `users/<username>`（见
+`internal/filter/schema.go` 的 `creator` → `memo_creator.username` 映射，值形态是
+`users/xxx`），不是裸用户名。`scopedFilter` 原来拼 `creator == "James"`，把用户自己
+的 memo 全过滤掉了。
+
+**修复**：`sync.go` 的 `scopedFilter` 改为 `creator == "users/"+username`，
+同步更新 `memogit_test.go` 断言。
+
+### 4.4 pull 的 updated_ts 比较类型错（已修复）
+`pull` 报 `found no matching overload for '_>_' applied to '(timestamp, int)'`。
+`updated_ts` 在 CEL schema 里是 **timestamp** 类型（`schema.go:153`），不能和裸 epoch
+int 比。**修复**：`pull.go` 的增量 filter 改为 `updated_ts > timestamp(<epoch>)`
+（服务端 `internal/filter/time_test.go` 确认 `timestamp(<int>)` 合法）。
+
+### 4.5 文档落进 workspace 子目录（行为变更）
+按用户要求，文档不再平铺在 checkout 根，而是落在**以 workspace title 命名的子目录**下
+（如 `Default/`），根目录只留 `.memogit`/`.git`/`.gitignore`。实现：新增
+`ContentRoot(root, cfg)`（`sync.go`）= `root/<sanitized workspace title>`（title 清洗后
+为空则回退 `WorkDir="work"`），clone/pull 把这个 contentRoot 传给
+`exportMemo`/`relocateAndWrite`/`filepath.Join`。sync-state 里的 Path 仍是相对 contentRoot
+的路径，逻辑不变。**注意**：此前用旧版 clone 出来、文件在根目录的 checkout 与新版不兼容，
+需重新 clone。
+
+### 4.6 push（阶段 4，已实现）
+`push.go`：`listDocFiles` 扫 contentRoot（跳过 `_attachments/` 与 dotfiles），用
+`state.PathIndex()`（路径→uid）区分已跟踪/新建：
+- 新文件 → `deriveMemoFromPath`（从路径+扩展名推 folder_path/title/doc_type）→ `CreateMemo`
+  （visibility 默认 PRIVATE，workspace 取 config），回写 uid 到 sync-state。
+- 已跟踪且本地 hash != 基线 → 先 `GetMemo` 拿服务端当前 content 算 hash：服务端==基线
+  → `UpdateMemo(update_mask=[content])`；服务端也变了 → **冲突**（`⚠`）跳过，提示先 pull。
+- 已跟踪但本地文件已删 → `ArchiveMemo`（`UpdateMemo state=ARCHIVED`，软删，不 DeleteMemo）。
+- PDF stub 与 `_attachments/` 一律不参与 push（生成物/只读）。
+- `--dry-run` 只打印计划，不发请求、不改 sync-state、不 commit。成功后更新基线并 git commit。
+
+本地实测（8081 实例）全流程验证通过：新建、修改、删除→归档、幂等（全 unchanged）、
+两边都改→冲突跳过、dry-run。
+
+### 4.7 附件单向下载（阶段 5 的下载部分，已实现）
+`attachments.go`：`/file/{attachmentName}/{filename}` 路由**已实测认可 PAT `Bearer`**
+（spike 通过，200 + 正确 Content-Type/Length），所以下载走裸 HTTP（`Client.DownloadAttachment`），
+非 Connect API（Attachment.content 是 INPUT_ONLY，读不到）。
+- clone/pull 对每个（变更）memo 下载其全部 attachments 到
+  `<contentRoot>/_attachments/<attachment-uid>/<filename>`；按 size 跳过已存在的相同文件。
+- sync-state 的 MemoState 新增 `Attachments []AttachmentRef{Name,Filename,Size,Path}`。
+- PDF stub 增加指向本地下载文件的链接（`pdfLocalPath`）。
+- **不改写正文里的内联附件引用**——改写会让文件 hash 变、被 push 误判为本地改动而触发假冲突；
+  所以正文保持逐字节还原，附件字节只是并排下载供 LLM 读取。
+- 单向：只下载不上传（上传留待后续）。
+
+### 4.8 pull 服务端删除对账（已实现）
+`pull.go` 的 `reconcileServerDeletions`：增量 `updated_ts >` 过滤感知不到服务端
+删除/归档，所以在增量循环后再做一次**全量当前列表**（scopedFilter，无时间过滤），
+sync-state 里的 uid 不在 alive 集合里 = 服务端已删/已归档 → 移除本地文件 + 其
+`_attachments` + state entry（PullResult.Removed）。**保护**：若本地文件相对基线有未推送
+改动（hash 不等），不删除，记入 `res.Orphaned` 并 `⚠` 提示，避免丢失本地工作。
+代价：每次 pull 多一次全量 list（v1 可接受，后续可优化成只取 name）。
+
+### 4.9 status（已实现）
+`status.go`：只读，连服务端做一次全量 list，同时算两层：
+- **本地待 push**：改动(`~`)/新建(`+`)/删除(`-`)——复用 push 的分类逻辑但不写。
+- **远端待 pull**：服务端 hash 变(`~`)/新建(`+`)/删除归档(`-`)。
+- **冲突(`⚠`)**：两边都变。
+- 末尾附 `git status --porcelain` 的脏文件计数（`GitStatusPorcelain`），把"memogit 同步态"
+  和"git 工作区态"两个 status 概念分开显示。
+本地实测：clone 后 in-sync；本地改+新建→2 to push；服务端归档→远端 `-` 且 pull 移除本地。
+
+### 4.10 冲突落地成 `.remote` sidecar（供 IDE 合并，已实现）
+`conflict.go`：memos 是 REST API 不是 git remote，`git fetch` 拿不到"服务端那一方"，
+所以 memogit 主动把它写成本地文件供 IDE 两方对比合并。
+- 冲突时（pull 或 push 检测到两边都改）→ 写 `<path>.remote` = 服务端内容，并在
+  sync-state 记 `ConflictServerHash`（冲突时的服务端 hash）。
+- **解决流程**：用户在 IDE 里 diff `foo.md` vs `foo.md.remote`，合并进 `foo.md`，
+  **删掉 `.remote`**（sidecar 存在与否 = 是否已解决的信号）→ `memogit push`。
+- push 见 `ConflictServerHash != ""`：sidecar 还在 → 仍未解决,跳过；sidecar 已删 →
+  `GetMemo` 复查:服务端==冲突时的 hash → 推送合并结果、清除标记;服务端又变了 →
+  重新写 `.remote` 并更新标记(正确的 git 语义,避免覆盖服务端更新)。
+- `.remote` 加入 `.gitignore`;`listDocFiles` 跳过 `*.remote`(否则会被当新文档 create)。
+- 本地实测四场景全过:冲突生成 sidecar / sidecar 在时拒推 / 合并删 sidecar 后成功推送 /
+  解决期间服务端再变→重新冲突。
 
 ## 5. 测试覆盖
 

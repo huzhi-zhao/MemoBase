@@ -54,12 +54,15 @@ func Clone(ctx context.Context, root string, cfg *Config, workspaceTitle string,
 	if err := checkPathCollisions(memos, out); err != nil {
 		return err
 	}
+	contentRoot := ContentRoot(root, cfg)
+	attachmentCount := 0
 	for _, m := range memos {
-		ms, err := exportMemo(root, m)
+		ms, nDown, err := exportMemo(ctx, client, contentRoot, m, nil)
 		if err != nil {
 			return err
 		}
 		state.Memos[uidFromName(m.GetName())] = ms
+		attachmentCount += nDown
 		fmt.Fprintf(out, "  + %s\n", ms.Path)
 	}
 	state.LastSync = time.Now().UTC()
@@ -77,7 +80,8 @@ func Clone(ctx context.Context, root string, cfg *Config, workspaceTitle string,
 		return err
 	}
 
-	fmt.Fprintf(out, "Cloned %d memos into %s/ and committed baseline.\n", len(memos), WorkDir)
+	relContentRoot, _ := filepath.Rel(root, contentRoot)
+	fmt.Fprintf(out, "Cloned %d memos (%d attachments) into %s/ and committed baseline.\n", len(memos), attachmentCount, relContentRoot)
 	return nil
 }
 

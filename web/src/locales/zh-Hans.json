@@ -229,7 +229,23 @@
     },
     "checkbox": "复选框",
     "code-block": "代码块",
-    "content-syntax": "内容语法"
+    "content-syntax": "内容语法",
+    "kanban-block": {
+      "empty": "空的 kanban 代码块",
+      "ungrouped": "未分组",
+      "select-task": "选择一个任务以查看详情",
+      "add-task": "添加任务",
+      "add-placeholder": "任务标题，回车保存",
+      "field": {
+        "status": "状态",
+        "priority": "优先级",
+        "done": "完成",
+        "due": "截止",
+        "tags": "标签",
+        "created": "创建于",
+        "updated": "更新于"
+      }
+    }
   },
   "memo": {
     "archived-at": "归档于",

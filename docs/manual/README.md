@@ -16,6 +16,7 @@ one.
 | 3 | [Gallery Views](./03-gallery-views.md) | Notion-style `view` documents: creating a gallery, scopes, sorting, cover rules, card fields, and how views stay live. |
 | 4 | [Markdown Editor Optimization ](04-md-editor-optimization.md) | Notion / Obsidian–style formatting shortcuts in the CodeMirror editor: bold, italic, code, links, lists, headings, and what's intentionally deferred. |
 | 5 | [memogit CLI](./05-memogit-cli.md) | Checking a knowledge base out to local files with the `memogit` command-line tool: install, `login` / `clone` / `pull` / `push` / `status`, the workspace/folder-path/doc-type file layout, one-way attachment download, IDE-mergeable conflict resolution, config & state, and troubleshooting. |
+| 6 | [Kanban Board](./06-kanban-board.md) | The `kanban` fenced block: YAML task syntax, fields & custom fields, column ordering, and the interactive gestures (done-toggle, drag-to-move, add-card) that write changes back into the Markdown. |
 
 ## Core concepts at a glance
 

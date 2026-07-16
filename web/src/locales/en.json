@@ -280,6 +280,22 @@
     "content-syntax": "Content syntax",
     "grid-block": {
       "empty": "Empty grid code block"
+    },
+    "kanban-block": {
+      "empty": "Empty kanban code block",
+      "ungrouped": "Ungrouped",
+      "select-task": "Select a task to see its details",
+      "add-task": "Add task",
+      "add-placeholder": "Task title, Enter to save",
+      "field": {
+        "status": "Status",
+        "priority": "Priority",
+        "done": "Done",
+        "due": "Due",
+        "tags": "Tags",
+        "created": "Created",
+        "updated": "Updated"
+      }
     }
   },
   "memo": {

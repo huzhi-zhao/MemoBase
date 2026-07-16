@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { getThemeWithFallback, resolveTheme } from "@/utils/theme";
 import { CalendarBlock } from "./CalendarBlock";
 import { GridBlock } from "./GridBlock";
+import { KanbanBlock } from "./KanbanBlock";
 import { MermaidBlock } from "./MermaidBlock";
 import type { ReactMarkdownProps } from "./markdown/types";
 import { extractCodeContent, extractLanguage } from "./utils";
@@ -54,6 +55,17 @@ export const CodeBlock = ({ children, className, node: _node, ...props }: CodeBl
         <GridBlock className={cn(className)} {...props}>
           {children}
         </GridBlock>
+      </pre>
+    );
+  }
+
+  // If it's a kanban block, render with KanbanBlock component
+  if (language === "kanban") {
+    return (
+      <pre className="relative">
+        <KanbanBlock className={cn(className)} {...props}>
+          {children}
+        </KanbanBlock>
       </pre>
     );
   }

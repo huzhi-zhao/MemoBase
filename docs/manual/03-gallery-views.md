@@ -52,6 +52,7 @@ Notion-style views that connect you back to the documents that matter.
    - **Sort** — card ordering (see §3.4).
    - **Cover rule** — how each card's cover image is chosen (see §3.5).
    - **Card fields** — what text the card shows (see §3.6).
+   - **Badges** — up to 3 property-filtered ribbon overlays (see §3.6a).
 4. Submit → the form serializes to the configuration JSON and saves through the
    normal document-save API.
 5. Re-opening the editor **re-hydrates** the form from the stored JSON.
@@ -108,6 +109,39 @@ Each row is a `GalleryCardField`:
 - `__created__` — the created date.
 - `prop:<key>` — a frontmatter property value.
 - `""` (empty) — show nothing on that row.
+
+---
+
+## 3.6a Card badges — flagging matching cards
+
+Badges are a **block-level setting** (`GalleryBlock.badges`), configured in
+the View editor alongside scope/sort/cover/card-fields. A block may configure
+**up to 3 badges**. Each badge has:
+
+| Field | Meaning |
+|-------|---------|
+| **Style** | One of the three built-in ribbon styles: `tag`, `ribbon`, `corner` (see below). |
+| **Text** | The badge's label, truncated to 5 characters. |
+| **Color** | A hex color for the badge background (defaults to `#FFFFFF`). |
+| **Property filter** | A `key = value` equality check (same semantics as a scope `property` rule) against the *card's own* frontmatter — e.g. `status = done`. A badge with no property key never matches anything. |
+
+At render time, for each card in the block, its frontmatter properties are
+checked against the block's badges **in order**; the first badge whose filter
+matches is shown (`matchGalleryBadge` in
+`web/src/components/GalleryView/types.ts`). A card that matches no badge's
+filter shows none. This is a display-only overlay: matching a badge never
+changes which documents the block includes, only how a matched card looks.
+
+Styles (rendered by `GalleryCardBadge` in `GalleryViewRenderer.tsx`):
+
+- **`tag`** — a small rectangular label pinned to the card's top-left corner.
+  This is the "completed" style: in addition to showing the label, the whole
+  card is rendered with reduced opacity and grayscale to visually
+  de-emphasize it.
+- **`ribbon`** — a vertical folded ribbon in the top-left corner (letters
+  stacked top-to-bottom), no special card treatment.
+- **`corner`** — a diagonal ribbon across the top-right corner, no special
+  card treatment.
 
 ---
 

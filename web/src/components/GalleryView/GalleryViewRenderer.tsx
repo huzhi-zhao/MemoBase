@@ -11,7 +11,7 @@ import { getAttachmentThumbnailUrl, isImage } from "@/utils/attachment";
 import { parseFrontmatter, type MemoProperty } from "@/utils/frontmatter";
 import { useTranslate } from "@/utils/i18n";
 import { fieldValue, matchesScope, propertyMap, propertyValueToString } from "./fields";
-import { type GalleryBlock, parseGalleryViewConfig } from "./types";
+import { type GalleryBadgeRule, type GalleryBlock, matchGalleryBadge, parseGalleryViewConfig } from "./types";
 
 interface Props {
   memo: Memo;
@@ -103,6 +103,52 @@ const sortDocs = (docs: Memo[], block: GalleryBlock): Memo[] => {
   }
 };
 
+// Renders a block-configured badge as an overlay ribbon on a matching card.
+// `tag` uses a flag/pennant shape in the top-left corner (also dims the card —
+// used for "completed" style badges); `ribbon` a vertical folded ribbon in the
+// top-left corner; `corner` a diagonal ribbon across the top-right corner.
+const GalleryCardBadge = ({ badge }: { badge: GalleryBadgeRule }) => {
+  if (!badge.title) return null;
+  if (badge.kind === "tag") {
+    return (
+      <div
+        className="absolute top-2 left-2 z-10 px-2 py-0.5 text-xs font-medium text-white rounded shadow-sm"
+        style={{ backgroundColor: badge.color }}
+      >
+        {badge.title}
+      </div>
+    );
+  }
+  if (badge.kind === "ribbon") {
+    return (
+      <div
+        className="absolute top-0 left-2 z-10 flex flex-col items-center px-1.5 pt-1.5 pb-2 text-xs font-medium text-white shadow-sm"
+        style={{
+          backgroundColor: badge.color,
+          clipPath: "polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%)",
+        }}
+      >
+        {badge.title.split("").map((ch, i) => (
+          <span key={i} className="leading-tight">
+            {ch}
+          </span>
+        ))}
+      </div>
+    );
+  }
+  // corner
+  return (
+    <div className="absolute top-0 right-0 z-10 w-24 h-24 overflow-hidden pointer-events-none">
+      <div
+        className="absolute top-[18px] right-[-30px] w-[140px] rotate-45 text-center text-xs font-medium text-white py-1 shadow-sm"
+        style={{ backgroundColor: badge.color }}
+      >
+        {badge.title}
+      </div>
+    </div>
+  );
+};
+
 interface BlockProps {
   block: GalleryBlock;
   memo: Memo;
@@ -141,13 +187,18 @@ const GalleryBlockView = ({ block, memo, openDoc }: BlockProps) => {
             const cover = coverUrl(doc, props, block);
             const primary = fieldValue(doc, props, block.cardFields.primary) || doc.title || doc.name;
             const secondary = fieldValue(doc, props, block.cardFields.secondary);
+            const badge = matchGalleryBadge(block.badges, props);
             return (
               <button
                 key={doc.name}
                 type="button"
-                className="flex flex-col rounded-lg border border-border overflow-hidden text-left bg-card hover:shadow-md hover:border-accent transition-all"
+                className={cn(
+                  "relative flex flex-col rounded-lg border border-border overflow-hidden text-left bg-card hover:shadow-md hover:border-accent transition-all",
+                  badge?.kind === "tag" && "opacity-60 grayscale",
+                )}
                 onClick={() => openDoc(doc.name)}
               >
+                {badge && <GalleryCardBadge badge={badge} />}
                 <div className="w-full aspect-[2/1] bg-muted flex items-center justify-center overflow-hidden">
                   {cover ? (
                     <img src={cover} alt="" loading="lazy" className="w-full h-full object-cover" />

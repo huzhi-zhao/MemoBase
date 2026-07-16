@@ -71,6 +71,37 @@ export interface GalleryCardFields {
   secondary: GalleryCardField;
 }
 
+/**
+ * Which ribbon style a card badge uses. `tag` is a top-left flag/pennant
+ * shape and additionally dims the card (grayscale + reduced opacity) to
+ * de-emphasize it — meant for "completed" style badges. `ribbon` is a
+ * vertical folded ribbon in the top-left corner. `corner` is a diagonal
+ * ribbon across the top-right corner. Neither `ribbon` nor `corner` carry
+ * any special behavior beyond display.
+ */
+export type GalleryBadgeKind = "tag" | "ribbon" | "corner";
+
+/**
+ * One badge configured on a gallery block. Applies to any card whose
+ * document has a frontmatter property `propertyKey` equal to `propertyValue`
+ * (a `property` scope filter, same equality semantics as `GalleryRule`'s
+ * `property` kind). A block may configure at most 3 badges; the first whose
+ * filter matches a given card wins.
+ */
+export interface GalleryBadgeRule {
+  kind: GalleryBadgeKind;
+  /** Badge label text, at most 5 characters. */
+  title: string;
+  /** Badge color (CSS hex color string). */
+  color: string;
+  /** Frontmatter property key this badge's filter checks. */
+  propertyKey: string;
+  /** Value `propertyKey` must equal for a card to receive this badge. */
+  propertyValue: string;
+}
+
+export const MAX_GALLERY_BADGES = 3;
+
 /** A single gallery within a VIEW document. */
 export interface GalleryBlock {
   /** Optional markdown intro rendered above this block's cards. */
@@ -81,6 +112,8 @@ export interface GalleryBlock {
   sort: GallerySort;
   cover: GalleryCoverRule;
   cardFields: GalleryCardFields;
+  /** At most `MAX_GALLERY_BADGES` badge rules. */
+  badges: GalleryBadgeRule[];
 }
 
 export interface GalleryViewConfig {
@@ -104,6 +137,7 @@ export const DEFAULT_GALLERY_BLOCK: GalleryBlock = {
   sort: "updated_desc",
   cover: "first_image",
   cardFields: DEFAULT_CARD_FIELDS,
+  badges: [],
 };
 
 function parseMatch(raw: unknown): GalleryMatch {
@@ -197,6 +231,30 @@ function normalizeCover(raw: unknown): GalleryCoverRule {
   return "first_image";
 }
 
+const BADGE_KINDS = new Set<GalleryBadgeKind>(["tag", "ribbon", "corner"]);
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{3,8}$/;
+export const DEFAULT_BADGE_COLOR = "#e63d3d";
+
+function parseBadgeRule(raw: unknown): GalleryBadgeRule | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const r = raw as { kind?: unknown; title?: unknown; color?: unknown; propertyKey?: unknown; propertyValue?: unknown };
+  const kind = typeof r.kind === "string" && BADGE_KINDS.has(r.kind as GalleryBadgeKind) ? (r.kind as GalleryBadgeKind) : undefined;
+  if (!kind) return undefined;
+  const title = typeof r.title === "string" ? r.title.slice(0, 5) : "";
+  const color = typeof r.color === "string" && HEX_COLOR_RE.test(r.color) ? r.color : DEFAULT_BADGE_COLOR;
+  const propertyKey = typeof r.propertyKey === "string" ? r.propertyKey.trim() : "";
+  const propertyValue = typeof r.propertyValue === "string" ? r.propertyValue : "";
+  return { kind, title, color, propertyKey, propertyValue };
+}
+
+function parseBadges(raw: unknown): GalleryBadgeRule[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map(parseBadgeRule)
+    .filter((b): b is GalleryBadgeRule => b !== undefined)
+    .slice(0, MAX_GALLERY_BADGES);
+}
+
 function parseBlock(raw: unknown): GalleryBlock {
   const b = (raw ?? {}) as {
     description?: unknown;
@@ -205,6 +263,7 @@ function parseBlock(raw: unknown): GalleryBlock {
     sort?: unknown;
     cover?: unknown;
     cardFields?: { primary?: unknown; secondary?: unknown };
+    badges?: unknown;
   };
   return {
     description: typeof b.description === "string" && b.description.trim() ? b.description : undefined,
@@ -216,7 +275,27 @@ function parseBlock(raw: unknown): GalleryBlock {
       primary: normalizeCardField(b.cardFields?.primary, DEFAULT_CARD_FIELDS.primary),
       secondary: normalizeCardField(b.cardFields?.secondary, DEFAULT_CARD_FIELDS.secondary),
     },
+    badges: parseBadges(b.badges),
   };
+}
+
+/**
+ * Resolves the badge (if any) a document should show within a block: the
+ * first configured badge whose property filter matches the document's
+ * frontmatter properties. A badge with an empty `propertyKey` never matches
+ * (a badge always needs its own filter).
+ */
+export function matchGalleryBadge(
+  badges: GalleryBadgeRule[],
+  props: { get(key: string): { value: unknown; type: string } | undefined },
+): GalleryBadgeRule | undefined {
+  return badges.find((badge) => {
+    if (!badge.propertyKey) return false;
+    const prop = props.get(badge.propertyKey);
+    if (!prop) return false;
+    if (prop.type === "list") return Array.isArray(prop.value) && prop.value.some((v) => v === badge.propertyValue);
+    return String(prop.value ?? "") === badge.propertyValue;
+  });
 }
 
 /**

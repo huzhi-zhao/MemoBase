@@ -9,7 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useTranslate } from "@/utils/i18n";
 import {
+  DEFAULT_BADGE_COLOR,
   DEFAULT_GALLERY_BLOCK,
+  type GalleryBadgeKind,
+  type GalleryBadgeRule,
   type GalleryBlock,
   type GalleryCardField,
   type GalleryCoverRule,
@@ -17,6 +20,7 @@ import {
   type GalleryMatch,
   type GalleryRule,
   type GallerySort,
+  MAX_GALLERY_BADGES,
   parseGalleryViewConfig,
   serializeGalleryViewConfig,
 } from "./types";
@@ -63,7 +67,16 @@ interface BlockDraft {
   cover: GalleryCoverRule;
   primary: CardFieldState;
   secondary: CardFieldState;
+  badges: GalleryBadgeRule[];
 }
+
+const DEFAULT_BADGE_DRAFT: GalleryBadgeRule = {
+  kind: "tag",
+  title: "",
+  color: DEFAULT_BADGE_COLOR,
+  propertyKey: "",
+  propertyValue: "",
+};
 
 function toCardFieldState(field: GalleryCardField): CardFieldState {
   if (field.startsWith("prop:")) return { kind: "property", propKey: field.slice(5) };
@@ -116,6 +129,7 @@ function toDraft(block: GalleryBlock): BlockDraft {
     cover: block.cover,
     primary: toCardFieldState(block.cardFields.primary),
     secondary: toCardFieldState(block.cardFields.secondary),
+    badges: block.badges,
   };
 }
 
@@ -127,6 +141,14 @@ function effectiveGroups(draft: BlockDraft): GalleryGroup[] {
     .filter((g) => g.rules.length > 0);
 }
 
+// Badges missing a property key can never match a card, so they're dropped on save.
+function effectiveBadges(draft: BlockDraft): GalleryBadgeRule[] {
+  return draft.badges
+    .filter((b) => b.propertyKey.trim() !== "")
+    .map((b) => ({ ...b, title: b.title.slice(0, 5), propertyKey: b.propertyKey.trim() }))
+    .slice(0, MAX_GALLERY_BADGES);
+}
+
 function fromDraft(draft: BlockDraft): GalleryBlock {
   return {
     description: draft.description.trim() ? draft.description : undefined,
@@ -135,6 +157,7 @@ function fromDraft(draft: BlockDraft): GalleryBlock {
     sort: draft.sort,
     cover: draft.cover,
     cardFields: { primary: fromCardFieldState(draft.primary), secondary: fromCardFieldState(draft.secondary) },
+    badges: effectiveBadges(draft),
   };
 }
 
@@ -209,6 +232,66 @@ const GalleryBlockForm = ({
             onChange={(e) => onChange({ [key]: { ...state, propKey: e.target.value } })}
           />
         )}
+      </div>
+    </div>
+  );
+
+  const updateBadge = (bi: number, patch: Partial<GalleryBadgeRule>) => {
+    onChange({ badges: draft.badges.map((b, i) => (i === bi ? { ...b, ...patch } : b)) });
+  };
+  const addBadge = () => onChange({ badges: [...draft.badges, { ...DEFAULT_BADGE_DRAFT }] });
+  const removeBadge = (bi: number) => onChange({ badges: draft.badges.filter((_, i) => i !== bi) });
+
+  const renderBadge = (badge: GalleryBadgeRule, bi: number) => (
+    <div key={bi} className="flex flex-col gap-2 rounded-lg border border-border p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-muted-foreground">{t("gallery.badge-title", { index: bi + 1 })}</span>
+        <Button variant="ghost" size="icon" onClick={() => removeBadge(bi)}>
+          <Trash2Icon className="w-4 h-4" />
+        </Button>
+      </div>
+      <div className="flex items-center gap-2">
+        <Select value={badge.kind} onValueChange={(v) => updateBadge(bi, { kind: v as GalleryBadgeKind })}>
+          <SelectTrigger className="flex-1">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="tag">{t("gallery.badge-style-tag")}</SelectItem>
+            <SelectItem value="ribbon">{t("gallery.badge-style-ribbon")}</SelectItem>
+            <SelectItem value="corner">{t("gallery.badge-style-corner")}</SelectItem>
+          </SelectContent>
+        </Select>
+        <Input
+          className="flex-1"
+          maxLength={5}
+          placeholder={t("gallery.badge-text-placeholder")}
+          value={badge.title}
+          onChange={(e) => updateBadge(bi, { title: e.target.value.slice(0, 5) })}
+        />
+        <div className="flex h-9 items-center gap-1.5 rounded-md border border-border bg-background px-2 shrink-0">
+          <input
+            type="color"
+            className="size-6 cursor-pointer rounded border border-border bg-transparent p-0.5"
+            value={badge.color}
+            onChange={(e) => updateBadge(bi, { color: e.target.value })}
+            aria-label={t("gallery.badge-color")}
+          />
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Input
+          className="flex-1"
+          placeholder={t("gallery.property-key-placeholder")}
+          value={badge.propertyKey}
+          onChange={(e) => updateBadge(bi, { propertyKey: e.target.value })}
+        />
+        <span className="text-muted-foreground text-sm">=</span>
+        <Input
+          className="flex-1"
+          placeholder={t("gallery.property-value-placeholder")}
+          value={badge.propertyValue}
+          onChange={(e) => updateBadge(bi, { propertyValue: e.target.value })}
+        />
       </div>
     </div>
   );
@@ -406,6 +489,17 @@ const GalleryBlockForm = ({
 
       {renderCardFieldRow(t("gallery.card-primary-label"), draft.primary, "primary", false)}
       {renderCardFieldRow(t("gallery.card-secondary-label"), draft.secondary, "secondary", true)}
+
+      <div className="flex flex-col gap-2">
+        <Label>{t("gallery.badges-label")}</Label>
+        {draft.badges.map((badge, bi) => renderBadge(badge, bi))}
+        {draft.badges.length < MAX_GALLERY_BADGES && (
+          <Button variant="outline" size="sm" className="self-start" onClick={addBadge}>
+            <PlusIcon className="w-4 h-4 mr-1" />
+            {t("gallery.add-badge")}
+          </Button>
+        )}
+      </div>
 
       <div className="flex flex-col gap-1.5">
         <Label>{t("gallery.footer-label")}</Label>

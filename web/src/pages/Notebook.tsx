@@ -400,6 +400,51 @@ const Notebook = () => {
     [memo, updateMemo, t],
   );
 
+  // Mounts uploaded files onto the current document as attachments (appended to
+  // any existing ones). Used by VIEW documents to attach files at the bottom.
+  const handleAddAttachments = useCallback(
+    async (files: File[]) => {
+      if (!memo || files.length === 0) return;
+      try {
+        const created = await Promise.all(
+          files.map(async (file) =>
+            createAttachment.mutateAsync(
+              create(AttachmentSchema, {
+                filename: file.name,
+                size: BigInt(file.size),
+                type: file.type || "application/octet-stream",
+                content: new Uint8Array(await file.arrayBuffer()),
+                origin: AttachmentOrigin.MOUNTED,
+              }),
+            ),
+          ),
+        );
+        const attachments = [...memo.attachments, ...created].map((a) => create(AttachmentSchema, { name: a.name }));
+        await updateMemo.mutateAsync({
+          update: { name: memo.name, attachments },
+          updateMask: ["attachments"],
+        });
+        invalidateTree();
+      } catch (error) {
+        handleError(error, toast.error, { context: t("gallery.add-attachment") });
+      }
+    },
+    [memo, createAttachment, updateMemo, invalidateTree, t],
+  );
+
+  const handleRemoveAttachment = useCallback(
+    async (name: string) => {
+      if (!memo) return;
+      const attachments = memo.attachments.filter((a) => a.name !== name).map((a) => create(AttachmentSchema, { name: a.name }));
+      await updateMemo.mutateAsync({
+        update: { name: memo.name, attachments },
+        updateMask: ["attachments"],
+      });
+      invalidateTree();
+    },
+    [memo, updateMemo, invalidateTree],
+  );
+
   const handleMove = useCallback(
     async (workspace: string, folderPath: string) => {
       if (!memo) return;
@@ -463,6 +508,8 @@ const Notebook = () => {
               onDelete={handleDelete}
               onSaveHtml={handleSaveHtml}
               onMove={handleMove}
+              onAddAttachments={handleAddAttachments}
+              onRemoveAttachment={handleRemoveAttachment}
               onOpenDocument={handleSelectDocument}
             />
           </DocumentLinkProvider>

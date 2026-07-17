@@ -60,6 +60,8 @@ interface Props {
   onDelete: () => void;
   onSaveHtml: (content: string) => void;
   onMove: (workspace: string, folderPath: string) => void | Promise<void>;
+  onAddAttachments?: (files: File[]) => void | Promise<void>;
+  onRemoveAttachment?: (name: string) => void | Promise<void>;
   onOpenDocument?: (memoName: string) => void;
 }
 
@@ -82,7 +84,18 @@ const buildPreviewContext = (memo: Memo): MemoViewContextValue => ({
   openPreview: () => {},
 });
 
-const DocumentView = ({ memo, onSaved, onRenamed, onArchiveToggle, onDelete, onSaveHtml, onMove, onOpenDocument }: Props) => {
+const DocumentView = ({
+  memo,
+  onSaved,
+  onRenamed,
+  onArchiveToggle,
+  onDelete,
+  onSaveHtml,
+  onMove,
+  onAddAttachments,
+  onRemoveAttachment,
+  onOpenDocument,
+}: Props) => {
   const t = useTranslate();
   const { profile } = useInstance();
   const isDesktop = useMediaQuery("lg");
@@ -393,17 +406,27 @@ const DocumentView = ({ memo, onSaved, onRenamed, onArchiveToggle, onDelete, onS
             )
           ) : isView ? (
             mode === "preview" ? (
-              <GalleryViewRenderer memo={memo} onOpenDoc={onOpenDocument} className="px-6 py-4" />
+              <div className="px-6 py-4">
+                <GalleryViewRenderer memo={memo} onOpenDoc={onOpenDocument} />
+                {remainingAttachments.length > 0 && (
+                  <div id={ATTACHMENTS_ANCHOR_ID} className="mt-6 border-t border-border pt-4">
+                    <AttachmentListView attachments={remainingAttachments} />
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="h-full">
                 <GalleryViewForm
                   key={memo.name}
                   content={memo.content}
+                  attachments={remainingAttachments}
                   onSave={(content) => {
                     onSaveHtml(content);
                     setMode("preview");
                   }}
                   onCancel={() => setMode("preview")}
+                  onAddAttachments={onAddAttachments}
+                  onRemoveAttachment={onRemoveAttachment}
                 />
               </div>
             )

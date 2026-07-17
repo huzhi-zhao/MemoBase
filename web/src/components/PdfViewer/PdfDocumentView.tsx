@@ -64,6 +64,9 @@ export const PdfDocumentView = ({
   const [selectedMemoName, setSelectedMemoName] = useState<string>();
   const [pendingAnnotation, setPendingAnnotation] = useState<{ page: number; rect: PdfAnnotationRect; text: string }>();
   const [activePanel, setActivePanel] = useState<SidebarPanel>(null);
+  // Bumped whenever a PDF page-number badge is clicked, telling the text panel to scroll to
+  // that page. The nonce lets clicking the same page twice re-trigger the scroll.
+  const [textScrollTarget, setTextScrollTarget] = useState<{ page: number; nonce: number }>();
   const canAnnotate = !!parentMemoName && !!attachmentName;
   const { byPage, all, refetch } = usePdfAnnotations(parentMemoName, attachmentName);
   const pageRefs = useRef(new Map<number, HTMLDivElement>());
@@ -106,6 +109,13 @@ export const PdfDocumentView = ({
   const registerPageRef = useCallback((page: number, el: HTMLDivElement | null) => {
     if (el) pageRefs.current.set(page, el);
     else pageRefs.current.delete(page);
+  }, []);
+
+  // Clicking a page-number badge on the PDF opens the plain-text panel (if not already open)
+  // and scrolls it to that page's block.
+  const handlePageNumberClick = useCallback((page: number) => {
+    setActivePanel("text");
+    setTextScrollTarget((prev) => ({ page, nonce: (prev?.nonce ?? 0) + 1 }));
   }, []);
 
   // Open the comments panel by default when the PDF already has notes, so they're
@@ -153,6 +163,7 @@ export const PdfDocumentView = ({
         blocks={textResult.blocks}
         formatting={textResult.formatting}
         error={textResult.error}
+        scrollToPage={textScrollTarget}
         onClose={forDesktop ? () => setActivePanel(null) : undefined}
         onSelect={(page) => {
           if (!forDesktop) setActivePanel(null);
@@ -223,6 +234,7 @@ export const PdfDocumentView = ({
           basePageWidth={state.basePageWidth}
           basePageHeight={state.basePageHeight}
           onWrapperRef={registerPageRef}
+          onPageNumberClick={handlePageNumberClick}
         />
         {activePanel !== null && isDesktop && (
           // Sticky (not part of the page stack's own height) so it stays docked to the

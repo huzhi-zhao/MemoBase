@@ -49,6 +49,8 @@ interface Props {
   /** Reports this page's wrapper element so a scroll-to-page can find it without
    *  waiting for the page to have rendered. */
   onWrapperRef?: (pageNumber: number, el: HTMLDivElement | null) => void;
+  /** When provided, the page-number badge becomes a button that jumps the plain-text panel to this page. */
+  onPageNumberClick?: (pageNumber: number) => void;
 }
 
 interface PendingSelection {
@@ -70,6 +72,7 @@ export const PdfPageCanvas = ({
   estimatedWidth,
   estimatedHeight,
   onWrapperRef,
+  onPageNumberClick,
 }: Props) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textLayerRef = useRef<HTMLDivElement>(null);
@@ -245,9 +248,20 @@ export const PdfPageCanvas = ({
       {(annotations?.length || pendingSelection) && (
         <PdfAnnotationLayer annotations={annotations ?? []} selectedMemoName={selectedAnnotationMemoName} onSelect={onAnnotationSelect} />
       )}
-      <div className="absolute bottom-4 right-5 text-[10px] leading-tight text-gray-300 tabular-nums pointer-events-none select-none">
-        {pageNumber}
-      </div>
+      {onPageNumberClick ? (
+        <button
+          type="button"
+          title={pageNumber.toString()}
+          className="absolute bottom-4 right-5 text-[10px] leading-tight text-gray-300 tabular-nums select-none hover:text-blue-500 hover:underline cursor-pointer"
+          onClick={() => onPageNumberClick(pageNumber)}
+        >
+          {pageNumber}
+        </button>
+      ) : (
+        <div className="absolute bottom-4 right-5 text-[10px] leading-tight text-gray-300 tabular-nums pointer-events-none select-none">
+          {pageNumber}
+        </div>
+      )}
       {pendingSelection && (
         <Button
           size="sm"

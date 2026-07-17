@@ -25,6 +25,8 @@ interface Props {
   basePageWidth?: number;
   basePageHeight?: number;
   onWrapperRef?: (pageNumber: number, el: HTMLDivElement | null) => void;
+  /** When provided, each page's number badge becomes a button that jumps the plain-text panel to that page. */
+  onPageNumberClick?: (pageNumber: number) => void;
 }
 
 export const PdfPages = ({
@@ -44,6 +46,7 @@ export const PdfPages = ({
   basePageWidth,
   basePageHeight,
   onWrapperRef,
+  onPageNumberClick,
 }: Props) => {
   if (!doc) return <div ref={containerRef} className={className} />;
 
@@ -58,6 +61,7 @@ export const PdfPages = ({
     estimatedWidth: basePageWidth ? basePageWidth * scale : undefined,
     estimatedHeight: basePageHeight ? basePageHeight * scale : undefined,
     onWrapperRef,
+    onPageNumberClick,
   });
 
   if (orientation === "vertical") {

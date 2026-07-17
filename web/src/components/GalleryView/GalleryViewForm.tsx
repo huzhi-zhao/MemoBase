@@ -1,5 +1,5 @@
-import { LayoutGridIcon, PlusIcon, Trash2Icon, XIcon } from "lucide-react";
-import { useState } from "react";
+import { FileIcon, LayoutGridIcon, PaperclipIcon, PlusIcon, Trash2Icon, XIcon } from "lucide-react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import type { Attachment } from "@/types/proto/api/v1/attachment_service_pb";
+import { formatFileSize, getFileTypeLabel } from "@/utils/format";
 import { useTranslate } from "@/utils/i18n";
 import {
   DEFAULT_BADGE_COLOR,
@@ -27,8 +29,13 @@ import {
 
 interface Props {
   content: string;
+  /** Attachments mounted on this view document, shown as a section in the editor. */
+  attachments?: Attachment[];
   onSave: (content: string) => void;
   onCancel: () => void;
+  /** Uploads and mounts files onto the view document. When absent, the attachment section is hidden. */
+  onAddAttachments?: (files: File[]) => void | Promise<void>;
+  onRemoveAttachment?: (name: string) => void | Promise<void>;
 }
 
 // UI state for one card-field row: a "kind" (built-in token or "property") plus
@@ -329,7 +336,11 @@ const GalleryBlockForm = ({
           </>
         )}
         {rule.kind === "tag" && (
-          <Input placeholder={t("gallery.tag-placeholder")} value={rule.tag} onChange={(e) => updateRule(gi, ri, { tag: e.target.value })} />
+          <Input
+            placeholder={t("gallery.tag-placeholder")}
+            value={rule.tag}
+            onChange={(e) => updateRule(gi, ri, { tag: e.target.value })}
+          />
         )}
         {rule.kind === "property" && (
           <div className="flex items-center gap-2">
@@ -516,17 +527,29 @@ const GalleryBlockForm = ({
 
 // Editor for VIEW documents. A document may hold multiple gallery blocks; the
 // bottom toolbar's "+" inserts another, and Save/Cancel are pinned bottom-right.
-const GalleryViewForm = ({ content, onSave, onCancel }: Props) => {
+const GalleryViewForm = ({ content, attachments = [], onSave, onCancel, onAddAttachments, onRemoveAttachment }: Props) => {
   const t = useTranslate();
   const initial = parseGalleryViewConfig(content);
   const [blocks, setBlocks] = useState<BlockDraft[]>(() => (initial?.blocks ?? []).map(toDraft));
   const [frontmatter, setFrontmatter] = useState(() => initial?.frontmatter ?? "");
+  // Uploads are handled by the parent immediately on selection (independent of Save,
+  // which only persists the gallery config); this input drives the "attachments" section.
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachmentsEnabled = Boolean(onAddAttachments);
 
   const updateBlock = (index: number, patch: Partial<BlockDraft>) => {
     setBlocks((prev) => prev.map((b, i) => (i === index ? { ...b, ...patch } : b)));
   };
 
   const addGalleryBlock = () => setBlocks((prev) => [...prev, toDraft(DEFAULT_GALLERY_BLOCK)]);
+
+  const handleAddAttachmentsClick = () => fileInputRef.current?.click();
+
+  const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length > 0) onAddAttachments?.(files);
+    event.target.value = "";
+  };
 
   const handleSave = () => {
     onSave(
@@ -566,6 +589,54 @@ const GalleryViewForm = ({ content, onSave, onCancel }: Props) => {
               </div>
             ))
           )}
+
+          {attachmentsEnabled && (attachments.length > 0 || blocks.length > 0) && (
+            <div className="flex flex-col gap-3">
+              <hr className="border-border" />
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <PaperclipIcon className="w-4 h-4 text-primary" />
+                {t("gallery.attachments-title")}
+              </div>
+              {attachments.length === 0 ? (
+                <p className="text-xs text-muted-foreground">{t("gallery.attachments-empty")}</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {attachments.map((attachment) => (
+                    <div
+                      key={attachment.name}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-background/65 px-3 py-2"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted/50 text-muted-foreground">
+                          <FileIcon className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium leading-tight" title={attachment.filename}>
+                            {attachment.filename}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {getFileTypeLabel(attachment.type)}
+                            {attachment.size ? ` · ${formatFileSize(Number(attachment.size))}` : ""}
+                          </div>
+                        </div>
+                      </div>
+                      {onRemoveAttachment && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="shrink-0"
+                          onClick={() => onRemoveAttachment(attachment.name)}
+                          title={t("common.delete")}
+                        >
+                          <XIcon className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -581,8 +652,15 @@ const GalleryViewForm = ({ content, onSave, onCancel }: Props) => {
               <LayoutGridIcon className="w-4 h-4" />
               {t("gallery.style-gallery")}
             </DropdownMenuItem>
+            {attachmentsEnabled && (
+              <DropdownMenuItem onClick={handleAddAttachmentsClick}>
+                <PaperclipIcon className="w-4 h-4" />
+                {t("gallery.style-attachments")}
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
+        <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileInputChange} />
         <div className="flex items-center gap-2">
           <Button variant="ghost" onClick={onCancel}>
             {t("common.cancel")}

@@ -1,13 +1,18 @@
-import { DownloadIcon, ExternalLinkIcon, FileIcon, PaperclipIcon, PlayIcon } from "lucide-react";
+import copy from "copy-to-clipboard";
+import { DownloadIcon, ExternalLinkIcon, FileIcon, MoreVerticalIcon, PaperclipIcon, PlayIcon } from "lucide-react";
 import type { PropsWithChildren } from "react";
 import { useMemo } from "react";
+import toast from "react-hot-toast";
 import MetadataSection from "@/components/MemoMetadata/MetadataSection";
 import MotionPhotoPreview from "@/components/MotionPhotoPreview";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import VideoPoster from "@/components/VideoPoster";
 import { extractAttachmentUidFromName } from "@/helpers/resource-names";
 import { cn } from "@/lib/utils";
 import type { Attachment } from "@/types/proto/api/v1/attachment_service_pb";
 import { getAttachmentUrl } from "@/utils/attachment";
+import { useTranslate } from "@/utils/i18n";
 import type { AttachmentVisualItem, PreviewMediaItem } from "@/utils/media-item";
 import { buildAttachmentVisualItems } from "@/utils/media-item";
 import AudioAttachmentItem from "./AudioAttachmentItem";
@@ -230,25 +235,53 @@ const AudioList = ({ attachments, compact = false }: { attachments: Attachment[]
   </div>
 );
 
+// Trailing "⋮" menu for an attachment row. Currently offers copying the inline
+// markdown reference (`![filename](/file/attachments/…/name.ext)`) so the file can
+// be embedded into another document's content.
+const AttachmentActionsMenu = ({ attachment }: { attachment: Attachment }) => {
+  const t = useTranslate();
+
+  const handleCopyMdReference = () => {
+    copy(`![${attachment.filename}](${getAttachmentUrl(attachment)})`);
+    toast.success(t("gallery.copy-md-reference-success"));
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground/60 hover:text-foreground/70" title={t("common.more")}>
+          <MoreVerticalIcon className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={handleCopyMdReference}>{t("gallery.copy-md-reference")}</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
 const DocsList = ({ attachments }: { attachments: Attachment[] }) => (
   <div className="flex flex-col gap-2">
-    {attachments.map((attachment) =>
-      isPreviewableAttachment(attachment) ? (
-        <a
-          key={attachment.name}
-          href={`/attachments/${extractAttachmentUidFromName(attachment.name)}/preview`}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={`Preview ${attachment.filename}`}
-        >
-          <DocumentItem attachment={attachment} />
-        </a>
-      ) : (
-        <a key={attachment.name} href={getAttachmentUrl(attachment)} download title={`Download ${attachment.filename}`}>
-          <DocumentItem attachment={attachment} />
-        </a>
-      ),
-    )}
+    {attachments.map((attachment) => (
+      <div key={attachment.name} className="flex items-center gap-1">
+        {isPreviewableAttachment(attachment) ? (
+          <a
+            className="min-w-0 flex-1"
+            href={`/attachments/${extractAttachmentUidFromName(attachment.name)}/preview`}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={`Preview ${attachment.filename}`}
+          >
+            <DocumentItem attachment={attachment} />
+          </a>
+        ) : (
+          <a className="min-w-0 flex-1" href={getAttachmentUrl(attachment)} download title={`Download ${attachment.filename}`}>
+            <DocumentItem attachment={attachment} />
+          </a>
+        )}
+        <AttachmentActionsMenu attachment={attachment} />
+      </div>
+    ))}
   </div>
 );
 

@@ -235,15 +235,24 @@ const AudioList = ({ attachments, compact = false }: { attachments: Attachment[]
   </div>
 );
 
-// Trailing "⋮" menu for an attachment row. Currently offers copying the inline
-// markdown reference (`![filename](/file/attachments/…/name.ext)`) so the file can
-// be embedded into another document's content.
+// Trailing "⋮" menu for an attachment row. Offers copying the inline markdown
+// reference (`![filename](/file/attachments/…/name.ext)`) so the file can be
+// embedded into another document's content, and downloading the file.
 const AttachmentActionsMenu = ({ attachment }: { attachment: Attachment }) => {
   const t = useTranslate();
 
   const handleCopyMdReference = () => {
     copy(`![${attachment.filename}](${getAttachmentUrl(attachment)})`);
     toast.success(t("gallery.copy-md-reference-success"));
+  };
+
+  const handleDownload = () => {
+    const link = document.createElement("a");
+    link.href = getAttachmentUrl(attachment);
+    link.download = attachment.filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   };
 
   return (
@@ -254,6 +263,10 @@ const AttachmentActionsMenu = ({ attachment }: { attachment: Attachment }) => {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={handleDownload}>
+          <DownloadIcon className="h-4 w-4" />
+          {t("gallery.download")}
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={handleCopyMdReference}>{t("gallery.copy-md-reference")}</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

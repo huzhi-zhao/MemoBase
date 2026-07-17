@@ -22,10 +22,13 @@ import {
   InstanceSetting_AIProviderConfigSchema,
   InstanceSetting_AIProviderType,
   InstanceSetting_AISettingSchema,
+  InstanceSetting_EmbeddingConfig,
+  InstanceSetting_EmbeddingConfigSchema,
   InstanceSetting_Key,
   InstanceSetting_TranscriptionConfig,
   InstanceSetting_TranscriptionConfigSchema,
   InstanceSettingSchema,
+  TestAIProviderRequest_Capability,
   TestAIProviderRequestSchema,
 } from "@/types/proto/api/v1/instance_service_pb";
 import { useTranslate } from "@/utils/i18n";
@@ -56,6 +59,11 @@ type LocalTranscription = {
   model: string;
   language: string;
   prompt: string;
+};
+
+type LocalEmbedding = {
+  providerId: string;
+  model: string;
 };
 
 const providerTypeOptions = [InstanceSetting_AIProviderType.OPENAI, InstanceSetting_AIProviderType.GEMINI];
@@ -96,6 +104,17 @@ const toLocalTranscription = (config: InstanceSetting_TranscriptionConfig | unde
   prompt: config?.prompt ?? "",
 });
 
+const toLocalEmbedding = (config: InstanceSetting_EmbeddingConfig | undefined): LocalEmbedding => ({
+  providerId: config?.providerId ?? "",
+  model: config?.model ?? "",
+});
+
+const toEmbeddingConfig = (embedding: LocalEmbedding) =>
+  create(InstanceSetting_EmbeddingConfigSchema, {
+    providerId: embedding.providerId,
+    model: embedding.model.trim(),
+  });
+
 const newProvider = (): LocalAIProvider => ({
   id: createProviderID(),
   title: "",
@@ -131,10 +150,12 @@ const AISection = () => {
   const { aiSetting: originalSetting } = useInstance();
   const [providers, setProviders] = useState<LocalAIProvider[]>(() => originalSetting.providers.map(toLocalProvider));
   const [transcription, setTranscription] = useState<LocalTranscription>(() => toLocalTranscription(originalSetting.transcription));
+  const [embedding, setEmbedding] = useState<LocalEmbedding>(() => toLocalEmbedding(originalSetting.embedding));
   const [defaultProviderId, setDefaultProviderId] = useState(originalSetting.defaultProviderId);
   const [formatPdfText, setFormatPdfText] = useState(originalSetting.formatPdfText);
   const [editingProvider, setEditingProvider] = useState<LocalAIProvider | undefined>();
   const [deleteTarget, setDeleteTarget] = useState<LocalAIProvider | undefined>();
+  const [testingEmbedding, setTestingEmbedding] = useState(false);
 
   useEffect(() => {
     setProviders(originalSetting.providers.map(toLocalProvider));
@@ -164,6 +185,22 @@ const AISection = () => {
   const originalTranscription = useMemo(() => toLocalTranscription(originalSetting.transcription), [originalSetting.transcription]);
   const transcriptionHasChanges = !isEqual(transcription, originalTranscription);
 
+  const lastSyncedEmbedding = useRef<LocalEmbedding>(toLocalEmbedding(originalSetting.embedding));
+  useEffect(() => {
+    const next = toLocalEmbedding(originalSetting.embedding);
+    if (!isEqual(lastSyncedEmbedding.current, next)) {
+      setEmbedding(next);
+      lastSyncedEmbedding.current = next;
+    }
+  }, [originalSetting.embedding]);
+
+  const originalEmbedding = useMemo(() => toLocalEmbedding(originalSetting.embedding), [originalSetting.embedding]);
+  const embeddingHasChanges = !isEqual(embedding, originalEmbedding);
+  const embeddingProviderRef = useMemo(
+    () => providers.find((provider) => provider.id === embedding.providerId),
+    [providers, embedding.providerId],
+  );
+
   const transcriptionProviderRef = useMemo(
     () => providers.find((provider) => provider.id === transcription.providerId),
     [providers, transcription.providerId],
@@ -178,6 +215,7 @@ const AISection = () => {
     errorContext: string,
     nextDefaultProviderId: string = defaultProviderId,
     nextFormatPdfText: boolean = formatPdfText,
+    nextEmbedding: InstanceSetting_EmbeddingConfig | undefined = originalSetting.embedding,
   ) => {
     return saveInstanceSetting({
       key: InstanceSetting_Key.AI,
@@ -190,6 +228,7 @@ const AISection = () => {
             transcription: nextTranscription,
             defaultProviderId: nextDefaultProviderId,
             formatPdfText: nextFormatPdfText,
+            embedding: nextEmbedding,
           }),
         },
       }),
@@ -273,6 +312,55 @@ const AISection = () => {
       return;
     }
     await persistAISetting(providers, toTranscriptionConfig(transcription), "Update transcription");
+  };
+
+  const handleSaveEmbedding = async () => {
+    if (embedding.providerId && !embeddingProviderRef) {
+      toast.error(t("setting.ai.embedding-empty-providers"));
+      return;
+    }
+    const ok = await persistAISetting(
+      providers,
+      originalSetting.transcription,
+      "Update embedding",
+      defaultProviderId,
+      formatPdfText,
+      toEmbeddingConfig(embedding),
+    );
+    if (!ok) return;
+    lastSyncedEmbedding.current = { ...embedding, model: embedding.model.trim() };
+  };
+
+  const handleTestEmbedding = async () => {
+    if (!embedding.providerId || !embeddingProviderRef) {
+      toast.error(t("setting.ai.embedding-empty-providers"));
+      return;
+    }
+    const model = embedding.model.trim();
+    if (!model) {
+      toast.error(t("setting.ai.test-model-required"));
+      return;
+    }
+    setTestingEmbedding(true);
+    try {
+      const response = await instanceServiceClient.testAIProvider(
+        create(TestAIProviderRequestSchema, {
+          providerId: embedding.providerId,
+          type: embeddingProviderRef.type,
+          model,
+          capability: TestAIProviderRequest_Capability.EMBEDDING,
+        }),
+      );
+      if (response.success) {
+        toast.success(response.message || t("setting.ai.test-success"));
+      } else {
+        toast.error(response.message || t("setting.ai.test-failed"));
+      }
+    } catch (error: unknown) {
+      await handleError(error, toast.error, { context: "Test embedding provider" });
+    } finally {
+      setTestingEmbedding(false);
+    }
   };
 
   return (
@@ -398,6 +486,66 @@ const AISection = () => {
           onChange={setTranscription}
           referencedProvider={transcriptionProviderRef}
         />
+      </SettingGroup>
+
+      <SettingGroup
+        title={t("setting.ai.embedding-title")}
+        description={t("setting.ai.embedding-description")}
+        showSeparator
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              disabled={!embedding.providerId || !embedding.model.trim() || testingEmbedding}
+              onClick={handleTestEmbedding}
+            >
+              {testingEmbedding ? t("setting.ai.testing") : t("setting.ai.test-connection")}
+            </Button>
+            <Button disabled={!embeddingHasChanges} onClick={handleSaveEmbedding}>
+              {t("common.save")}
+            </Button>
+          </div>
+        }
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-3xl">
+          <div className="flex flex-col gap-1.5">
+            <Label>{t("setting.ai.embedding-provider")}</Label>
+            <Select
+              value={embedding.providerId || "__none__"}
+              onValueChange={(value) => setEmbedding((prev) => ({ ...prev, providerId: value === "__none__" ? "" : value }))}
+              disabled={providers.length === 0}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">{t("setting.ai.embedding-no-provider")}</SelectItem>
+                {providers.map((provider) => (
+                  <SelectItem key={provider.id} value={provider.id}>
+                    {provider.title || provider.id}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {providers.length === 0 && <p className="text-xs text-muted-foreground">{t("setting.ai.embedding-empty-providers")}</p>}
+            {embeddingProviderRef && !embeddingProviderRef.apiKeySet && (
+              <p className="text-xs text-destructive">{t("setting.ai.embedding-warning-no-key")}</p>
+            )}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>{t("setting.ai.embedding-model")}</Label>
+            <Input
+              value={embedding.model}
+              onChange={(e) => setEmbedding((prev) => ({ ...prev, model: e.target.value }))}
+              placeholder={
+                embeddingProviderRef?.type === InstanceSetting_AIProviderType.GEMINI ? "text-embedding-004" : "text-embedding-3-small"
+              }
+              disabled={!embedding.providerId}
+              maxLength={256}
+            />
+            <p className="text-xs text-muted-foreground">{t("setting.ai.embedding-model-help")}</p>
+          </div>
+        </div>
       </SettingGroup>
 
       <SettingGroup title={t("setting.ai.pdf-text-title")} description={t("setting.ai.pdf-text-description")} showSeparator>

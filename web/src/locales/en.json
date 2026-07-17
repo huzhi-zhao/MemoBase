@@ -165,7 +165,9 @@
     "username": "Username",
     "version": "Version",
     "visibility": "Visibility",
-    "yourself": "Yourself"
+    "yourself": "Yourself",
+    "loading": "Loading",
+    "untitled": "Untitled"
   },
   "locale-picker": {
     "no-language-feedback": "Language not found? Submit feedback"
@@ -208,6 +210,12 @@
       "danger": "Danger",
       "example": "Example",
       "quote": "Quote"
+    },
+    "view": {
+      "trigger": "View",
+      "grid": "Grid view",
+      "kanban": "Kanban",
+      "calendar": "Calendar view"
     },
     "insert-menu": {
       "add-location": "Add location",
@@ -558,6 +566,14 @@
       "provider-type": "Provider type",
       "providers": "Providers",
       "transcription-description": "Speech-to-text settings used when recording audio in the memo composer.",
+      "embedding-description": "Configure a text-embedding model to enable semantic (vector) search. When unset, search falls back to keyword-only.",
+      "embedding-empty-providers": "Add an AI integration first to enable semantic search.",
+      "embedding-model-help": "Embedding model ID (e.g. text-embedding-3-small, text-embedding-004). Changing it rebuilds the index in the background.",
+      "embedding-model": "Embedding model",
+      "embedding-no-provider": "Disabled (keyword-only search)",
+      "embedding-provider": "Provider",
+      "embedding-title": "Semantic search embedding",
+      "embedding-warning-no-key": "This provider has no API key set; semantic search will not work until one is configured.",
       "transcription-empty-providers": "Add an AI integration first to enable transcription.",
       "transcription-language-help": "ISO 639-1 short code (e.g. en, de, zh). Leave empty to auto-detect.",
       "transcription-language-placeholder": "auto-detect",
@@ -687,7 +703,21 @@
       "mini-menu": "Mini menu",
       "mini-menu-description": "Shrinks sidebar icons and text for a more compact layout on this device.",
       "theme-description": "Applies the selected theme immediately on this device.",
-      "theme": "Theme"
+      "theme": "Theme",
+      "search-title": "Search",
+      "search-description": "Configure how full-text and semantic search behave.",
+      "search-mode": "Search mode",
+      "search-mode-description": "Choose keyword, semantic, or a mix of both.",
+      "search-mode-mixed": "Mixed (keyword + semantic)",
+      "search-mode-keyword": "Keyword only",
+      "search-mode-semantic": "Semantic only",
+      "search-max-docs": "Max results",
+      "search-max-docs-description": "Maximum number of documents returned by a search.",
+      "search-rebuild": "Rebuild index",
+      "search-rebuilding": "Rebuilding…",
+      "search-rebuild-description": "Re-index your documents. Useful if some failed to index (e.g. a temporary embedding error).",
+      "search-rebuild-done": "Queued {{count}} document(s) for re-indexing.",
+      "search-index-status": "Indexed {{done}} · Queued {{pending}} · Failed {{failed}}. Rebuild re-indexes your own documents."
     },
     "shortcut": {
       "delete-confirm": "Are you sure you want to delete shortcut `{{title}}`?",
@@ -1090,5 +1120,10 @@
     "title": "Bookshelf",
     "new-workspace": "New workspace",
     "created-at": "Created {{date}}"
+  },
+  "search": {
+    "no-results": "No matching documents found.",
+    "keyword-only-hint": "Configure an embedding model to enable semantic search. Showing keyword results only.",
+    "results-for": "Results for"
   }
 }

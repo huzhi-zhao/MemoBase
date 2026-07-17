@@ -17,6 +17,7 @@ import (
 
 	"github.com/usememos/memos/internal/markdown"
 	"github.com/usememos/memos/internal/profile"
+	"github.com/usememos/memos/internal/rag"
 	storepb "github.com/usememos/memos/proto/gen/store"
 	backuprunner "github.com/usememos/memos/server/runner/backup"
 	memopayloadrunner "github.com/usememos/memos/server/runner/memopayload"
@@ -180,6 +181,20 @@ func (s *Server) startBackgroundRunners(ctx context.Context) {
 		memoPayloadRunner.RunOnce(memoPayloadContext)
 		slog.Info("memo payload rebuild finished")
 	}()
+
+	// RAG search index worker. Indexing is only implemented for the SQLite driver
+	// in this release, so the worker is started only there.
+	if s.Profile.Driver == "sqlite" {
+		ragContext, ragCancel := context.WithCancel(ctx)
+		s.backgroundRunnerCancels = append(s.backgroundRunnerCancels, ragCancel)
+		ragWorker := rag.NewWorker(s.Store)
+		s.backgroundRunnerWG.Add(1)
+		go func() {
+			defer s.backgroundRunnerWG.Done()
+			ragWorker.Run(ragContext)
+			slog.Info("rag index worker stopped")
+		}()
+	}
 
 	slog.Info("background runners started")
 }

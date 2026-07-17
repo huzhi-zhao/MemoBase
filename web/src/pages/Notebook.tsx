@@ -1,13 +1,15 @@
 import { create } from "@bufbuild/protobuf";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { DocumentLinkProvider, resolveWorkspacePath } from "@/components/MemoContent/DocumentLinkContext";
 import DocumentView from "@/components/Notebook/DocumentView";
+import LibrarySearchResults from "@/components/Notebook/LibrarySearchResults";
 import MoveFolderDialog from "@/components/Notebook/MoveFolderDialog";
 import NotebookSidebar from "@/components/Notebook/NotebookSidebar";
 import PromptDialog from "@/components/Notebook/PromptDialog";
+import { ragServiceClient } from "@/connect";
 import { useCreateAttachment } from "@/hooks/useAttachmentQueries";
 import useCurrentUser from "@/hooks/useCurrentUser";
 import { useLastOpened } from "@/hooks/useLastOpened";
@@ -26,6 +28,7 @@ import { handleError } from "@/lib/error";
 import { AttachmentOrigin, AttachmentSchema } from "@/types/proto/api/v1/attachment_service_pb";
 import { State } from "@/types/proto/api/v1/common_pb";
 import { Memo_DocType, MemoSchema } from "@/types/proto/api/v1/memo_service_pb";
+import { type SearchHit, SearchMode } from "@/types/proto/api/v1/rag_service_pb";
 import type { WorkspaceTreeNode } from "@/types/proto/api/v1/workspace_service_pb";
 import { WorkspaceTreeNode_NodeType } from "@/types/proto/api/v1/workspace_service_pb";
 import { useTranslate } from "@/utils/i18n";
@@ -73,6 +76,9 @@ const Notebook = () => {
   const [workspaceName, setWorkspaceName] = useState<string | undefined>(undefined);
   const [selectedMemo, setSelectedMemo] = useState<string | undefined>(undefined);
   const [archived, setArchived] = useState(false);
+  // In-library (F2) search state. `search` is null when no search is active.
+  const [search, setSearch] = useState<{ query: string; hits: SearchHit[]; degraded: boolean } | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
   const restoredWorkspace = useRef(false);
   const restoredMemo = useRef(false);
 
@@ -148,10 +154,39 @@ const Notebook = () => {
     }
   }, [workspaceName, selectedMemo, setLastOpened]);
 
+  const searchHitMemos = useMemo(() => (search ? new Set(search.hits.map((hit) => hit.memo)) : null), [search]);
+
+  const handleLibrarySearch = useCallback(
+    async (rawQuery: string) => {
+      const query = rawQuery.trim();
+      if (!query || !workspaceName) {
+        setSearch(null);
+        return;
+      }
+      setSearchLoading(true);
+      try {
+        const response = await ragServiceClient.search({
+          query,
+          scope: { case: "workspace", value: workspaceName },
+          mode: SearchMode.UNSPECIFIED,
+          limit: 0,
+        });
+        setSelectedMemo(undefined); // show the results list (not a stale open document)
+        setSearch({ query, hits: response.hits, degraded: response.effectiveMode === SearchMode.KEYWORD });
+      } catch (error) {
+        handleError(error, toast.error, { context: t("common.search") });
+      } finally {
+        setSearchLoading(false);
+      }
+    },
+    [workspaceName, t],
+  );
+
   const handleWorkspaceChange = useCallback(
     (name: string) => {
       setWorkspaceName(name);
       setSelectedMemo(undefined);
+      setSearch(null); // a library search is scoped to one workspace; drop it on switch
       restoredMemo.current = false; // auto-select the workspace's last-opened doc once its tree loads
       const title = workspaces.find((w) => w.name === name)?.title ?? name;
       navigate(`/${encodeURIComponent(title)}`, { replace: true });
@@ -161,6 +196,9 @@ const Notebook = () => {
 
   const handleSelectDocument = useCallback(
     (memoName: string) => {
+      // Opening a document (incl. a search hit) shows it in the preview but KEEPS the
+      // active search: the folder tree stays filtered to the hits so the user can keep
+      // browsing results. Clearing the search box is what restores the full tree.
       setSelectedMemo(memoName);
       if (workspaceName) {
         const title = workspaces.find((w) => w.name === workspaceName)?.title ?? workspaceName;
@@ -173,9 +211,7 @@ const Notebook = () => {
   const handleOpenInNewTab = useCallback(() => {
     if (!workspaceName) return;
     const title = workspaces.find((w) => w.name === workspaceName)?.title ?? workspaceName;
-    const path = selectedMemo
-      ? `/${encodeURIComponent(title)}/${encodeURIComponent(selectedMemo)}`
-      : `/${encodeURIComponent(title)}`;
+    const path = selectedMemo ? `/${encodeURIComponent(title)}/${encodeURIComponent(selectedMemo)}` : `/${encodeURIComponent(title)}`;
     window.open(`${window.location.origin}${path}`, "_blank", "noopener,noreferrer");
   }, [workspaceName, selectedMemo, workspaces]);
 
@@ -404,6 +440,8 @@ const Notebook = () => {
             onRenameFolder={(path) => setRenameFolderDialog({ path })}
             onMoveFolder={(path) => setMoveFolderDialog({ path })}
             onDeleteFolder={handleDeleteFolder}
+            onSearch={handleLibrarySearch}
+            restrictToMemos={searchHitMemos}
           />
         </div>
       )}
@@ -428,6 +466,14 @@ const Notebook = () => {
               onOpenDocument={handleSelectDocument}
             />
           </DocumentLinkProvider>
+        ) : search ? (
+          <LibrarySearchResults
+            query={search.query}
+            hits={search.hits}
+            degradedToKeyword={search.degraded}
+            loading={searchLoading}
+            onSelect={handleSelectDocument}
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
             {tree.length === 0 ? t("notebook.no-documents") : t("notebook.select-a-document")}

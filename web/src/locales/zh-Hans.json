@@ -128,7 +128,9 @@
     "username": "用户名",
     "version": "版本",
     "visibility": "可见性",
-    "yourself": "您自己"
+    "yourself": "您自己",
+    "loading": "加载中",
+    "untitled": "未命名"
   },
   "locale-picker": {
     "no-language-feedback": "未找到语言？ 提交反馈"
@@ -174,6 +176,12 @@
       "danger": "danger",
       "example": "example",
       "quote": "quote"
+    },
+    "view": {
+      "trigger": "视图",
+      "grid": "网格视图",
+      "kanban": "看板",
+      "calendar": "日历视图"
     },
     "insert-menu": {
       "add-location": "添加位置",
@@ -487,6 +495,19 @@
       "integrations-description": "由实例管理员提供的供应商密钥，用于服务端 AI 功能。",
       "integrations-title": "AI 集成",
       "transcription-description": "在备忘编辑器中录制音频时使用的语音转文字设置。",
+      "embedding-description": "配置文本向量（embedding）模型以启用语义搜索。未配置时，搜索自动降级为纯关键词检索。",
+      "embedding-empty-providers": "请先添加 AI 集成以启用语义搜索。",
+      "embedding-model-help": "向量模型 ID（如 text-embedding-3-small、text-embedding-004）。更换模型将在后台重建索引。",
+      "test-connection": "测试连接",
+      "testing": "测试中…",
+      "test-model-required": "请先填写模型再测试连接。",
+      "test-success": "连接成功。",
+      "test-failed": "连接失败。",
+      "embedding-model": "向量模型",
+      "embedding-no-provider": "关闭（仅关键词搜索）",
+      "embedding-provider": "提供方",
+      "embedding-title": "语义搜索向量模型",
+      "embedding-warning-no-key": "该提供方尚未配置 API Key，配置前语义搜索无法工作。",
       "transcription-empty-providers": "请先添加 AI 集成以启用语音转写。",
       "transcription-language": "默认语言",
       "transcription-language-help": "ISO 639-1 语言代码（如 en、de、zh）。留空则自动检测。",
@@ -518,7 +539,21 @@
       "memo-defaults-title": "备忘录默认值",
       "theme-description": "立即在当前设备上应用所选主题。",
       "theme": "主题",
-      "label": "偏好设置"
+      "label": "偏好设置",
+      "search-title": "搜索",
+      "search-description": "配置全文检索与语义检索的行为。",
+      "search-mode": "检索模式",
+      "search-mode-description": "选择关键词、语义或两者混合。",
+      "search-mode-mixed": "混合（关键词 + 语义）",
+      "search-mode-keyword": "仅关键词",
+      "search-mode-semantic": "仅语义",
+      "search-max-docs": "最大结果数",
+      "search-max-docs-description": "一次搜索返回的最大文档数。",
+      "search-rebuild": "重建索引",
+      "search-rebuilding": "重建中…",
+      "search-rebuild-description": "重新索引你的文档。当部分文档建索引失败（如临时的向量接口错误）时使用。",
+      "search-rebuild-done": "已将 {{count}} 个文档加入重新索引队列。",
+      "search-index-status": "已索引 {{done}} · 待处理 {{pending}} · 失败 {{failed}}。重建将重新索引你自己的文档。"
     },
     "shortcut": {
       "delete-confirm": "您确定要删除捷径 `{{title}}` 吗？",
@@ -1040,5 +1075,10 @@
     "title": "书架",
     "new-workspace": "新建知识库",
     "created-at": "创建于 {{date}}"
+  },
+  "search": {
+    "no-results": "未找到匹配的文档。",
+    "keyword-only-hint": "配置 embedding 模型以启用语义搜索。当前仅显示关键词检索结果。",
+    "results-for": "搜索结果："
   }
 }

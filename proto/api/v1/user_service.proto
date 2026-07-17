@@ -434,6 +434,7 @@ message UserSetting {
     WebhooksSetting webhooks_setting = 5;
     TagsSetting tags_setting = 6;
     LastOpenedSetting last_opened_setting = 7;
+    RagSearchSetting rag_search_setting = 8;
   }
 
   // Enumeration of user setting keys.
@@ -447,6 +448,8 @@ message UserSetting {
     TAGS = 5;
     // LAST_OPENED is the key for the last workspace/document opened in the Notebook home page.
     LAST_OPENED = 6;
+    // RAG_SEARCH is the key for per-user RAG search preferences.
+    RAG_SEARCH = 7;
   }
 
   // General user settings configuration.
@@ -481,6 +484,14 @@ message UserSetting {
   message WebhooksSetting {
     // List of user webhooks.
     repeated UserWebhook webhooks = 1;
+  }
+
+  // Per-user RAG search preferences.
+  message RagSearchSetting {
+    // Max documents to return. Zero falls back to the engine default (20).
+    int32 max_result_docs = 1 [(google.api.field_behavior) = OPTIONAL];
+    // Retrieval mode: one of "MIXED", "KEYWORD", "SEMANTIC". Empty falls back to "MIXED".
+    string mode = 2 [(google.api.field_behavior) = OPTIONAL];
   }
 
   // The last workspace/document the user had open in the Notebook home page.

@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/usememos/memos/internal/base"
 
@@ -139,7 +140,12 @@ func (s *Store) CreateMemo(ctx context.Context, create *Memo) (*Memo, error) {
 	if create.Title == "" {
 		create.Title = create.UID
 	}
-	return s.driver.CreateMemo(ctx, create)
+	memo, err := s.driver.CreateMemo(ctx, create)
+	if err != nil {
+		return nil, err
+	}
+	s.enqueueMemoIndex(ctx, memo.ID, IndexJobReasonCreated)
+	return memo, nil
 }
 
 func (s *Store) ListMemos(ctx context.Context, find *FindMemo) ([]*Memo, error) {
@@ -163,7 +169,11 @@ func (s *Store) UpdateMemo(ctx context.Context, update *UpdateMemo) error {
 	if update.UID != nil && !base.UIDMatcher.MatchString(*update.UID) {
 		return errors.New("invalid uid")
 	}
-	return s.driver.UpdateMemo(ctx, update)
+	if err := s.driver.UpdateMemo(ctx, update); err != nil {
+		return err
+	}
+	s.enqueueMemoIndex(ctx, update.ID, IndexJobReasonUpdated)
+	return nil
 }
 
 func (s *Store) DeleteMemo(ctx context.Context, delete *DeleteMemo) error {
@@ -184,5 +194,17 @@ func (s *Store) DeleteMemo(ctx context.Context, delete *DeleteMemo) error {
 			return err
 		}
 	}
+	// Clean up search index artifacts (best-effort; not supported on all drivers).
+	_ = s.driver.DeleteMemoChunks(ctx, delete.ID)
+	_ = s.driver.DeleteMemoIndexJob(ctx, delete.ID)
 	return s.driver.DeleteMemo(ctx, delete)
+}
+
+// enqueueMemoIndex best-effort enqueues a memo for (re)indexing. Failures are
+// logged and swallowed so memo writes never fail because of the search index
+// (e.g. on database drivers where RAG indexing is unsupported).
+func (s *Store) enqueueMemoIndex(ctx context.Context, memoID int32, reason string) {
+	if err := s.driver.UpsertMemoIndexJob(ctx, memoID, reason); err != nil {
+		slog.Debug("failed to enqueue memo index job", slog.Int("memoID", int(memoID)), slog.Any("err", err))
+	}
 }

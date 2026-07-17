@@ -1,0 +1,112 @@
+syntax = "proto3";
+
+package memos.api.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+
+option go_package = "gen/api/v1";
+
+service RagService {
+  // Search runs a hybrid (full-text + semantic) search over the memos the current
+  // user can access. Global search and in-library search share this RPC, differing
+  // only by scope.
+  rpc Search(SearchRequest) returns (SearchResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/rag:search"
+      body: "*"
+    };
+  }
+
+  // RebuildIndex clears and re-enqueues the entire search index. Instance owners only.
+  rpc RebuildIndex(RebuildIndexRequest) returns (RebuildIndexResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/rag:rebuildIndex"
+      body: "*"
+    };
+  }
+
+  // GetIndexStatus returns the current index queue progress.
+  rpc GetIndexStatus(GetIndexStatusRequest) returns (GetIndexStatusResponse) {
+    option (google.api.http) = {get: "/api/v1/rag/indexStatus"};
+  }
+}
+
+// SearchMode mirrors store.RagSearchMode for the API surface.
+enum SearchMode {
+  SEARCH_MODE_UNSPECIFIED = 0;
+  SEARCH_MODE_MIXED = 1;
+  SEARCH_MODE_KEYWORD = 2;
+  SEARCH_MODE_SEMANTIC = 3;
+}
+
+message SearchRequest {
+  // Required. The search query.
+  string query = 1 [(google.api.field_behavior) = REQUIRED];
+
+  oneof scope {
+    // Search across all workspaces the user can access.
+    bool global = 2;
+    // Restrict search to a single workspace, identified by its resource name.
+    // Format: workspaces/{workspace}
+    string workspace = 3;
+  }
+
+  // Optional. Retrieval mode. Unspecified falls back to the user's configured mode.
+  SearchMode mode = 4 [(google.api.field_behavior) = OPTIONAL];
+
+  // Optional. Max documents to return. Zero falls back to the user's configured limit.
+  int32 limit = 5 [(google.api.field_behavior) = OPTIONAL];
+
+  // Optional. A CEL filter (same grammar as ListMemos.filter) that constrains the
+  // candidate document set BEFORE ranking. Structured conditions (workspace, tag,
+  // visibility, time, doc_type, …) define the corpus; the query then ranks within it.
+  // The keyword itself must NOT be encoded here as content.contains — pass it as `query`
+  // so semantic recall isn't lost. Permission scoping is always applied on top.
+  string filter = 6 [(google.api.field_behavior) = OPTIONAL];
+}
+
+message SearchHit {
+  // The memo resource name. Format: memos/{memo}
+  string memo = 1;
+  // The memo's user-facing title.
+  string title = 2;
+  // The workspace resource name the memo belongs to. Format: workspaces/{workspace}
+  string workspace = 3;
+  // The memo's folder path within its workspace.
+  string folder_path = 4;
+  // Fused relevance score (higher is more relevant).
+  double score = 5;
+  // Best-matching snippet of the memo's content.
+  string snippet = 6;
+  // Substrings within the snippet that matched the query, for client-side highlighting.
+  repeated string highlights = 7;
+}
+
+message SearchResponse {
+  repeated SearchHit hits = 1;
+  // The mode actually applied (may be downgraded to KEYWORD when no embedding model is configured).
+  SearchMode effective_mode = 2;
+}
+
+message RebuildIndexRequest {}
+
+message RebuildIndexResponse {
+  // Number of memos enqueued for reindexing.
+  int32 enqueued = 1;
+}
+
+message GetIndexStatusRequest {}
+
+message GetIndexStatusResponse {
+  // pending is the number of memos waiting to be indexed.
+  int32 pending = 1;
+  // processing is the number of memos currently being indexed.
+  int32 processing = 2;
+  // failed is the number of memos whose indexing failed.
+  int32 failed = 3;
+  // done is the number of memos successfully indexed.
+  int32 done = 4;
+  // embedding_configured reports whether a semantic-search embedding model is set up.
+  bool embedding_configured = 5;
+}

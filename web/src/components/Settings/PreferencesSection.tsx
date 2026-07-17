@@ -1,11 +1,18 @@
 import { create } from "@bufbuild/protobuf";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { toast } from "react-hot-toast";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { ragServiceClient } from "@/connect";
 import { useAuth } from "@/contexts/AuthContext";
 import useSidebarMode from "@/hooks/useSidebarMode";
-import { useUpdateUserGeneralSetting } from "@/hooks/useUserQueries";
+import { useUpdateUserGeneralSetting, useUpdateUserSetting, useUserSettings } from "@/hooks/useUserQueries";
+import { handleError } from "@/lib/error";
 import { Visibility } from "@/types/proto/api/v1/memo_service_pb";
-import { UserSetting_GeneralSetting, UserSetting_GeneralSettingSchema } from "@/types/proto/api/v1/user_service_pb";
+import { UserSetting_GeneralSetting, UserSetting_GeneralSettingSchema, UserSettingSchema } from "@/types/proto/api/v1/user_service_pb";
 import { loadLocale, useTranslate } from "@/utils/i18n";
 import { convertVisibilityFromString, convertVisibilityToString } from "@/utils/memo";
 import { setSidebarMode } from "@/utils/sidebarMode";
@@ -22,6 +29,51 @@ const PreferencesSection = () => {
   const { currentUser, userGeneralSetting: generalSetting, refetchSettings } = useAuth();
   const { mutate: updateUserGeneralSetting } = useUpdateUserGeneralSetting(currentUser?.name);
   const sidebarMode = useSidebarMode();
+
+  // RAG search preferences (per-user).
+  const { data: userSettings } = useUserSettings(currentUser?.name);
+  const { mutate: updateUserSetting } = useUpdateUserSetting();
+  const ragSearchSetting = userSettings?.settings.find((s) => s.name.endsWith("/settings/RAG_SEARCH"))?.value;
+  const ragMaxResultDocs = ragSearchSetting?.case === "ragSearchSetting" ? ragSearchSetting.value.maxResultDocs || 20 : 20;
+  const ragMode = ragSearchSetting?.case === "ragSearchSetting" ? ragSearchSetting.value.mode || "MIXED" : "MIXED";
+
+  // Search index status + user-level rebuild (re-indexes the current user's own docs,
+  // e.g. to recover documents whose indexing failed due to a transient embedding error).
+  const { data: indexStatus, refetch: refetchIndexStatus } = useQuery({
+    queryKey: ["rag-index-status"],
+    queryFn: () => ragServiceClient.getIndexStatus({}),
+  });
+  const [rebuilding, setRebuilding] = useState(false);
+
+  const handleRebuildIndex = async () => {
+    setRebuilding(true);
+    try {
+      const response = await ragServiceClient.rebuildIndex({});
+      toast.success(t("setting.preference.search-rebuild-done", { count: response.enqueued }));
+      refetchIndexStatus();
+    } catch (error) {
+      handleError(error, toast.error, { context: t("setting.preference.search-rebuild") });
+    } finally {
+      setRebuilding(false);
+    }
+  };
+
+  const updateRagSearch = (patch: { maxResultDocs?: number; mode?: string }, updateMask: string[]) => {
+    if (!currentUser?.name) return;
+    updateUserSetting({
+      setting: create(UserSettingSchema, {
+        name: `${currentUser.name}/settings/RAG_SEARCH`,
+        value: {
+          case: "ragSearchSetting",
+          value: {
+            maxResultDocs: patch.maxResultDocs ?? ragMaxResultDocs,
+            mode: patch.mode ?? ragMode,
+          },
+        },
+      }),
+      updateMask,
+    });
+  };
 
   const handleLocaleSelectChange = (locale: Locale) => {
     // Apply locale immediately for instant UI feedback and persist to localStorage
@@ -116,6 +168,57 @@ const PreferencesSection = () => {
                   ))}
               </SelectContent>
             </Select>
+          </SettingListItem>
+        </SettingList>
+      </SettingGroup>
+
+      <SettingGroup title={t("setting.preference.search-title")} description={t("setting.preference.search-description")} showSeparator>
+        <SettingList>
+          <SettingListItem label={t("setting.preference.search-mode")} description={t("setting.preference.search-mode-description")}>
+            <Select value={ragMode} onValueChange={(value) => updateRagSearch({ mode: value }, ["mode"])}>
+              <SelectTrigger className="min-w-fit">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="MIXED">{t("setting.preference.search-mode-mixed")}</SelectItem>
+                <SelectItem value="KEYWORD">{t("setting.preference.search-mode-keyword")}</SelectItem>
+                <SelectItem value="SEMANTIC">{t("setting.preference.search-mode-semantic")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingListItem>
+
+          <SettingListItem
+            label={t("setting.preference.search-max-docs")}
+            description={t("setting.preference.search-max-docs-description")}
+          >
+            <Input
+              type="number"
+              min={1}
+              max={100}
+              className="w-24"
+              defaultValue={ragMaxResultDocs}
+              onBlur={(e) => {
+                const value = Math.max(1, Math.min(100, Number(e.target.value) || 20));
+                if (value !== ragMaxResultDocs) updateRagSearch({ maxResultDocs: value }, ["max_result_docs"]);
+              }}
+            />
+          </SettingListItem>
+
+          <SettingListItem
+            label={t("setting.preference.search-rebuild")}
+            description={
+              indexStatus
+                ? t("setting.preference.search-index-status", {
+                    done: indexStatus.done,
+                    pending: indexStatus.pending + indexStatus.processing,
+                    failed: indexStatus.failed,
+                  })
+                : t("setting.preference.search-rebuild-description")
+            }
+          >
+            <Button variant="outline" disabled={rebuilding} onClick={handleRebuildIndex}>
+              {rebuilding ? t("setting.preference.search-rebuilding") : t("setting.preference.search-rebuild")}
+            </Button>
           </SettingListItem>
         </SettingList>
       </SettingGroup>

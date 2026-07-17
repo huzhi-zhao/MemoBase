@@ -40,6 +40,17 @@ type Driver interface {
 	CreateMemoHistory(ctx context.Context, create *MemoHistory) (*MemoHistory, error)
 	ListMemoHistories(ctx context.Context, find *FindMemoHistory) ([]*MemoHistory, error)
 
+	// MemoChunk / RAG index related methods.
+	ReplaceMemoChunks(ctx context.Context, memoID int32, chunks []*MemoChunk) error
+	DeleteMemoChunks(ctx context.Context, memoID int32) error
+	ListMemoChunks(ctx context.Context, find *FindMemoChunk) ([]*MemoChunk, error)
+	SearchMemoChunksFTS(ctx context.Context, query *ChunkFTSQuery) ([]*ChunkFTSResult, error)
+	UpsertMemoIndexJob(ctx context.Context, memoID int32, reason string) error
+	ListMemoIndexJobs(ctx context.Context, find *FindMemoIndexJob) ([]*MemoIndexJob, error)
+	UpdateMemoIndexJob(ctx context.Context, update *UpdateMemoIndexJob) error
+	DeleteMemoIndexJob(ctx context.Context, memoID int32) error
+	CountMemoIndexJobsByStatus(ctx context.Context) (map[string]int, error)
+
 	// InstanceSetting model related methods.
 	UpsertInstanceSetting(ctx context.Context, upsert *InstanceSetting) (*InstanceSetting, error)
 	ListInstanceSettings(ctx context.Context, find *FindInstanceSetting) ([]*InstanceSetting, error)

@@ -1,9 +1,8 @@
-import dayjs from "dayjs";
 import { useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import ExploreSearchResults from "@/components/MemoExplorer/ExploreSearchResults";
 import MemoView from "@/components/MemoView";
 import PagedMemoList from "@/components/PagedMemoList";
-import { parseFilterQuery, stringifyFilters, useMemoFilterContext } from "@/contexts/MemoFilterContext";
+import { useMemoFilterContext } from "@/contexts/MemoFilterContext";
 import { useView } from "@/contexts/ViewContext";
 import { useMemoFilters, useMemoSorting } from "@/hooks";
 import useCurrentUser from "@/hooks/useCurrentUser";
@@ -17,35 +16,22 @@ const Explore = () => {
   usePageTitle(t("common.explore"));
   const currentUser = useCurrentUser();
   const { compactMode } = useView();
-  const { hasFilter, removeFiltersByFactor } = useMemoFilterContext();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { hasFilter, removeFiltersByFactor, getFiltersByFactor } = useMemoFilterContext();
 
-  // Default to showing only today's memos when entering Explore, unless a
-  // displayTime filter is already present (e.g. from a shared URL). Writing
-  // straight to the URL (rather than calling addFilter) avoids racing with
-  // MemoFilterContext's own URL<->state sync effects, which can otherwise
-  // clobber a filter added immediately after a client-side route change.
-  useEffect(() => {
-    const existingFilters = parseFilterQuery(searchParams.get("filter"));
-    if (existingFilters.some((f) => f.factor === "displayTime")) {
-      return;
-    }
-    const newFilters = stringifyFilters([...existingFilters, { factor: "displayTime", value: dayjs().format("YYYY-MM-DD") }]);
-    const newParams = new URLSearchParams(searchParams);
-    newParams.set("filter", newFilters);
-    setSearchParams(newParams, { replace: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Explore now defaults to ALL visible documents (no implicit "today" filter). The
+  // keyword search box (contentSearch filters) drives a relevance-ranked RAG search;
+  // an empty keyword shows the normal paged feed.
 
-  // The workspace/visibility/archived/displayTime filters are Explore-only;
-  // reset them on navigating away so they don't leak into Home's or
-  // Archived's filter (which share the same global MemoFilterContext).
+  // The workspace/visibility/archived filters are Explore-only; reset them on
+  // navigating away so they don't leak into Home's or Archived's filter (which share
+  // the same global MemoFilterContext).
   useEffect(() => {
     return () => {
       removeFiltersByFactor("workspace");
       removeFiltersByFactor("visibility");
       removeFiltersByFactor("archived");
       removeFiltersByFactor("displayTime");
+      removeFiltersByFactor("contentSearch");
     };
   }, [removeFiltersByFactor]);
 
@@ -67,6 +53,22 @@ const Explore = () => {
     excludeNonFeedDocTypes: true,
   });
 
+  // The candidate-corpus filter for RAG search: every structured filter EXCEPT the
+  // keyword (which becomes the RAG query). This lets the sidebar's workspace/visibility/
+  // tag/time filters narrow the corpus that keyword ranking runs over.
+  const ragCandidateFilter = useMemoFilters({
+    includeShortcuts: false,
+    includePinned: false,
+    visibilities,
+    excludeNonFeedDocTypes: true,
+    excludeContentSearch: true,
+  });
+
+  const keyword = getFiltersByFactor("contentSearch")
+    .map((f) => f.value)
+    .join(" ")
+    .trim();
+
   const archived = hasFilter({ factor: "archived", value: "true" });
   const state = archived ? State.ARCHIVED : State.NORMAL;
 
@@ -76,6 +78,12 @@ const Explore = () => {
     state,
   });
 
+  // Keyword present → relevance-ranked RAG search over the filtered corpus.
+  if (keyword) {
+    return <ExploreSearchResults query={keyword} filter={ragCandidateFilter} />;
+  }
+
+  // No keyword → the normal paged feed of all visible documents.
   return (
     <PagedMemoList
       renderer={(memo: Memo) => (

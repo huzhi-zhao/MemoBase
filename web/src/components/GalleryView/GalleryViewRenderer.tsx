@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { State } from "@/types/proto/api/v1/common_pb";
 import { type Memo, Memo_DocType } from "@/types/proto/api/v1/memo_service_pb";
 import { getAttachmentThumbnailUrl, isImage } from "@/utils/attachment";
-import { parseFrontmatter, type MemoProperty } from "@/utils/frontmatter";
+import { type MemoProperty, parseFrontmatter } from "@/utils/frontmatter";
 import { useTranslate } from "@/utils/i18n";
 import { fieldValue, matchesScope, propertyMap, propertyValueToString } from "./fields";
 import { type GalleryBadgeRule, type GalleryBlock, matchGalleryBadge, parseGalleryViewConfig } from "./types";
@@ -122,14 +122,14 @@ const GalleryCardBadge = ({ badge }: { badge: GalleryBadgeRule }) => {
   if (badge.kind === "ribbon") {
     return (
       <div
-        className="absolute top-0 left-2 z-10 flex flex-col items-center px-1.5 pt-1.5 pb-2 text-xs font-medium text-white shadow-sm"
+        className="absolute top-0 left-2 z-10 flex flex-col items-center px-1 pt-1 pb-3.5 text-[11px] font-semibold leading-none text-white shadow-sm"
         style={{
           backgroundColor: badge.color,
-          clipPath: "polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%)",
+          clipPath: "polygon(0 0, 100% 0, 100% 100%, 50% 88%, 0 100%)",
         }}
       >
         {badge.title.split("").map((ch, i) => (
-          <span key={i} className="leading-tight">
+          <span key={i} className="leading-[1.15]">
             {ch}
           </span>
         ))}

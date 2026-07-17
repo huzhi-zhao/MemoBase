@@ -1,4 +1,4 @@
-import { BellIcon, CalendarDaysIcon, InfoIcon, LibraryBigIcon, PaperclipIcon, UserCircleIcon } from "lucide-react";
+import { BellIcon, InfoIcon, LibraryBigIcon, PaperclipIcon, SearchIcon, UserCircleIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Routes } from "@/router";
 import { UserNotification_Status } from "@/types/proto/api/v1/user_service_pb";
@@ -24,11 +24,13 @@ const usePrimaryNavLinks = (iconSizeClass: string, isMini = true) => {
     title: t("bookshelf.title"),
     icon: <LibraryBigIcon className={iconSizeClass} />,
   };
+  // Explore is now the unified search + browse surface (relevance-ranked keyword search
+  // over all visible documents, with structured filters), so it carries the search icon.
   const exploreNavLink: NavLinkItem = {
     id: "header-explore",
     path: Routes.EXPLORE,
     title: t("common.explore"),
-    icon: <CalendarDaysIcon className={iconSizeClass} />,
+    icon: <SearchIcon className={iconSizeClass} />,
   };
   const aboutNavLink: NavLinkItem = {
     id: "header-about",
@@ -71,7 +73,7 @@ const usePrimaryNavLinks = (iconSizeClass: string, isMini = true) => {
   };
 
   const primaryNavLinks: NavLinkItem[] = currentUser
-    ? [shelfNavLink, exploreNavLink, attachmentsNavLink, inboxNavLink]
+    ? [exploreNavLink, shelfNavLink, attachmentsNavLink, inboxNavLink]
     : [exploreNavLink, aboutNavLink, signInNavLink];
   const inboxAriaLabel = unreadCount > 0 ? `${t("common.inbox")}, ${unreadCount} unread` : t("common.inbox");
 

@@ -189,6 +189,24 @@ message InstanceAISetting {
   // AI provider to restructure it into Markdown in the plain-text panel. When disabled (the
   // default), the raw extracted text is shown as-is, avoiding the slow, billable LLM call.
   bool format_pdf_text = 4;
+
+  // embedding configures the text-embedding model used for semantic (vector) search.
+  // When unset or embedding.provider_id is empty, semantic search is disabled and
+  // search falls back to full-text (keyword) retrieval only.
+  EmbeddingConfig embedding = 5;
+}
+
+// EmbeddingConfig configures the text-embedding model used to power semantic search.
+message EmbeddingConfig {
+  // provider_id references an entry in InstanceAISetting.providers[].id.
+  // Empty string means semantic search is disabled (keyword-only fallback).
+  string provider_id = 1;
+
+  // model is the provider-specific embedding model identifier.
+  // Empty string falls back to the engine default.
+  // OPENAI examples: text-embedding-3-small, text-embedding-3-large.
+  // GEMINI examples: text-embedding-004.
+  string model = 2;
 }
 
 message AIProviderConfig {

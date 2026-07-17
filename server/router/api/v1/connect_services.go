@@ -579,6 +579,32 @@ func (s *ConnectServiceHandler) FormatMarkdown(ctx context.Context, req *connect
 	return connect.NewResponse(resp), nil
 }
 
+// RagService
+
+func (s *ConnectServiceHandler) Search(ctx context.Context, req *connect.Request[v1pb.SearchRequest]) (*connect.Response[v1pb.SearchResponse], error) {
+	resp, err := s.APIV1Service.Search(ctx, req.Msg)
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (s *ConnectServiceHandler) RebuildIndex(ctx context.Context, req *connect.Request[v1pb.RebuildIndexRequest]) (*connect.Response[v1pb.RebuildIndexResponse], error) {
+	resp, err := s.APIV1Service.RebuildIndex(ctx, req.Msg)
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (s *ConnectServiceHandler) GetIndexStatus(ctx context.Context, req *connect.Request[v1pb.GetIndexStatusRequest]) (*connect.Response[v1pb.GetIndexStatusResponse], error) {
+	resp, err := s.APIV1Service.GetIndexStatus(ctx, req.Msg)
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return connect.NewResponse(resp), nil
+}
+
 // ShortcutService
 
 func (s *ConnectServiceHandler) ListShortcuts(ctx context.Context, req *connect.Request[v1pb.ListShortcutsRequest]) (*connect.Response[v1pb.ListShortcutsResponse], error) {

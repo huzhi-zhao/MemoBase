@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math"
 	"regexp"
 	"strings"
@@ -213,6 +214,10 @@ func (s *APIV1Service) UpdateInstanceSetting(ctx context.Context, request *v1pb.
 
 	updateSetting := convertInstanceSettingToStore(request.Setting)
 
+	// embeddingModelChanged tracks whether an AI-setting update alters the embedding
+	// provider/model, which invalidates all stored vectors and requires a full re-index.
+	embeddingModelChanged := false
+
 	// Preserve write-only credential fields when the caller sends an empty value.
 	// An empty string means "no change", not "clear the credential".
 	switch updateSetting.Key {
@@ -249,6 +254,9 @@ func (s *APIV1Service) UpdateInstanceSetting(ctx context.Context, request *v1pb.
 		if err := s.prepareInstanceAISettingForUpdate(ctx, updateSetting.GetAiSetting()); err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "invalid AI setting: %v", err)
 		}
+		if prevAI, err := s.Store.GetInstanceAISetting(ctx); err == nil {
+			embeddingModelChanged = embeddingSignature(prevAI.GetEmbedding()) != embeddingSignature(updateSetting.GetAiSetting().GetEmbedding())
+		}
 	case storepb.InstanceSettingKey_BACKUP:
 		// Only path_template is client-editable; last_backup_* is written exclusively by the
 		// backup runner/RPC, so always carry the existing status forward regardless of what the
@@ -273,7 +281,24 @@ func (s *APIV1Service) UpdateInstanceSetting(ctx context.Context, request *v1pb.
 		return nil, status.Errorf(codes.Internal, "failed to upsert instance setting: %v", err)
 	}
 
+	// A changed embedding provider/model invalidates every stored vector. Enqueue a
+	// full background rebuild so new vectors are generated with the new model.
+	if embeddingModelChanged {
+		if _, err := s.enqueueRebuild(ctx, store.IndexJobReasonModelChanged, nil); err != nil {
+			slog.Error("failed to enqueue index rebuild after embedding model change", slog.Any("error", err))
+		}
+	}
+
 	return convertInstanceSettingFromStore(instanceSetting), nil
+}
+
+// embeddingSignature returns a stable identity for an embedding config so a change
+// in provider or model can be detected. Empty config yields an empty signature.
+func embeddingSignature(cfg *storepb.EmbeddingConfig) string {
+	if cfg == nil {
+		return ""
+	}
+	return cfg.GetProviderId() + "\x00" + cfg.GetModel()
 }
 
 // BackupNow triggers an immediate SQLite database backup to the configured S3 storage.
@@ -354,7 +379,11 @@ func (s *APIV1Service) TestAIProvider(ctx context.Context, request *v1pb.TestAIP
 		APIKey:   apiKey,
 	}
 
-	if err := ai.ProbeChat(ctx, provider, model); err != nil {
+	probe := ai.ProbeChat
+	if request.Capability == v1pb.TestAIProviderRequest_EMBEDDING {
+		probe = ai.ProbeEmbed
+	}
+	if err := probe(ctx, provider, model); err != nil {
 		return &v1pb.TestAIProviderResponse{Success: false, Message: err.Error()}, nil
 	}
 	return &v1pb.TestAIProviderResponse{Success: true, Message: "Connection succeeded"}, nil
@@ -751,6 +780,7 @@ func convertInstanceAISettingFromStore(setting *storepb.InstanceAISetting) *v1pb
 		Transcription:     convertTranscriptionConfigFromStore(setting.GetTranscription()),
 		DefaultProviderId: setting.GetDefaultProviderId(),
 		FormatPdfText:     setting.GetFormatPdfText(),
+		Embedding:         convertEmbeddingConfigFromStore(setting.GetEmbedding()),
 	}
 	for _, provider := range setting.Providers {
 		if provider == nil {
@@ -790,6 +820,7 @@ func convertInstanceAISettingToStore(setting *v1pb.InstanceSetting_AISetting) *s
 		Transcription:     convertTranscriptionConfigToStore(setting.GetTranscription()),
 		DefaultProviderId: setting.GetDefaultProviderId(),
 		FormatPdfText:     setting.GetFormatPdfText(),
+		Embedding:         convertEmbeddingConfigToStore(setting.GetEmbedding()),
 	}
 	for _, provider := range setting.Providers {
 		if provider == nil {
@@ -838,6 +869,26 @@ func convertTranscriptionConfigToStore(setting *v1pb.InstanceSetting_Transcripti
 		Model:      setting.GetModel(),
 		Language:   setting.GetLanguage(),
 		Prompt:     setting.GetPrompt(),
+	}
+}
+
+func convertEmbeddingConfigFromStore(setting *storepb.EmbeddingConfig) *v1pb.InstanceSetting_EmbeddingConfig {
+	if setting == nil {
+		return nil
+	}
+	return &v1pb.InstanceSetting_EmbeddingConfig{
+		ProviderId: setting.GetProviderId(),
+		Model:      setting.GetModel(),
+	}
+}
+
+func convertEmbeddingConfigToStore(setting *v1pb.InstanceSetting_EmbeddingConfig) *storepb.EmbeddingConfig {
+	if setting == nil {
+		return nil
+	}
+	return &storepb.EmbeddingConfig{
+		ProviderId: setting.GetProviderId(),
+		Model:      setting.GetModel(),
 	}
 }
 

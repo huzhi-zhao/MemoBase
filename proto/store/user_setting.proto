@@ -24,6 +24,8 @@ message UserSetting {
     TAGS = 8;
     // The last workspace/document the user had open in the Notebook home page.
     LAST_OPENED = 9;
+    // Per-user RAG search preferences.
+    RAG_SEARCH = 10;
   }
 
   int32 user_id = 1;
@@ -37,7 +39,28 @@ message UserSetting {
     PersonalAccessTokensUserSetting personal_access_tokens = 9;
     TagsUserSetting tags = 10;
     LastOpenedUserSetting last_opened = 11;
+    RagSearchUserSetting rag_search = 12;
   }
+}
+
+// RagSearchMode selects how hybrid search combines keyword and semantic retrieval.
+enum RagSearchMode {
+  RAG_SEARCH_MODE_UNSPECIFIED = 0;
+  // Combine full-text (keyword) and vector (semantic) retrieval via RRF.
+  MIXED = 1;
+  // Full-text (keyword) retrieval only.
+  KEYWORD = 2;
+  // Vector (semantic) retrieval only.
+  SEMANTIC = 3;
+}
+
+message RagSearchUserSetting {
+  // max_result_docs caps the number of documents returned by a search.
+  // Zero falls back to the engine default (20).
+  int32 max_result_docs = 1;
+  // mode selects the retrieval strategy. Unspecified falls back to MIXED.
+  // When no embedding model is configured, search is forced to KEYWORD regardless.
+  RagSearchMode mode = 2;
 }
 
 message LastOpenedUserSetting {

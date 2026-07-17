@@ -1,5 +1,6 @@
 import {
   AlertCircleIcon,
+  CalendarDaysIcon,
   CheckIcon,
   CircleCheckIcon,
   CircleHelpIcon,
@@ -8,6 +9,7 @@ import {
   Heading2Icon,
   Heading3Icon,
   InfoIcon,
+  LayoutGridIcon,
   ListIcon,
   type LucideIcon,
   MessageSquareQuoteIcon,
@@ -15,13 +17,21 @@ import {
   MoreHorizontalIcon,
   PencilIcon,
   QuoteIcon,
+  SquareKanbanIcon,
+  TablePropertiesIcon,
   TriangleAlertIcon,
   TypeIcon,
   ZapIcon,
 } from "lucide-react";
 import { type ComponentPropsWithoutRef, forwardRef, type MouseEventHandler, type RefObject, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import type { Translations } from "@/utils/i18n";
 import { useTranslate } from "@/utils/i18n";
@@ -79,6 +89,62 @@ const CALLOUT_MENU_GROUPS: CalloutMenuItem[][] = [
     { type: "quote", labelKey: "editor.callout.quote", icon: QuoteIcon },
     { type: "important", labelKey: "editor.callout.important", icon: AlertCircleIcon },
   ],
+];
+
+// View blocks offered by the toolbar's "view" dropdown. Picking one inserts a
+// ready-to-edit fenced example at the cursor, rendered live by CodeBlock.tsx.
+interface ViewMenuItem {
+  labelKey: Translations;
+  icon: LucideIcon;
+  snippet: string;
+}
+
+const VIEW_MENU_ITEMS: ViewMenuItem[] = [
+  {
+    labelKey: "editor.view.grid",
+    icon: LayoutGridIcon,
+    snippet: [
+      "```grid",
+      "- title: Cute Cat toy",
+      "  subtitle: New release",
+      "  Price: 300$",
+      "  Rating: ★★★★☆ 4.0",
+      "  Note: 2026-07-17",
+      "- title: Molang plush",
+      "  subtitle: Best seller",
+      "  Price: 120$",
+      "  Note: 2026-07-10",
+      "```",
+    ].join("\n"),
+  },
+  {
+    labelKey: "editor.view.kanban",
+    icon: SquareKanbanIcon,
+    snippet: [
+      "```kanban",
+      "statusOrder:",
+      "  - Todo",
+      "  - Doing",
+      "  - Done",
+      "items:",
+      "  - title: First task",
+      "    status: Todo",
+      "    priority: high",
+      "  - title: Task in progress",
+      "    status: Doing",
+      "  - title: Finished task",
+      "    status: Done",
+      "    done: true",
+      "```",
+    ].join("\n"),
+  },
+  {
+    labelKey: "editor.view.calendar",
+    icon: CalendarDaysIcon,
+    snippet: ["```calendar", "- 2026-07-17", "- [ ] Sample event", "- [x] Completed task", "- 2026-07-20", "- Another note", "```"].join(
+      "\n",
+    ),
+  },
 ];
 
 const MARK_COMMANDS = EDITOR_COMMANDS.filter((command) => command.group === "mark");
@@ -211,6 +277,20 @@ export function FormattingToolbar({ controllerRef, onExit, className }: Formatti
                 </DropdownMenuItem>
               ))}
             </div>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <SegmentButton Icon={TablePropertiesIcon} label={t("editor.view.trigger")} onMouseDown={preventFocusSteal} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" onCloseAutoFocus={returnFocusToEditor}>
+          {VIEW_MENU_ITEMS.map((item) => (
+            <DropdownMenuItem key={item.labelKey} onClick={() => controllerRef.current?.insertMarkdown(`\n${item.snippet}\n`)}>
+              <item.icon className="w-4 h-4" />
+              {t(item.labelKey)}
+            </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
       </DropdownMenu>

@@ -710,6 +710,17 @@ func (s *APIV1Service) UpdateUserSetting(ctx context.Context, request *v1pb.Upda
 				LastOpenedSetting: incomingLastOpened,
 			},
 		}
+	case storepb.UserSetting_RAG_SEARCH:
+		incomingRagSearch := request.Setting.GetRagSearchSetting()
+		if incomingRagSearch == nil {
+			return nil, status.Errorf(codes.InvalidArgument, "rag_search setting is required")
+		}
+		updatedSetting = &v1pb.UserSetting{
+			Name: request.Setting.Name,
+			Value: &v1pb.UserSetting_RagSearchSetting_{
+				RagSearchSetting: incomingRagSearch,
+			},
+		}
 	default:
 		return nil, status.Errorf(codes.InvalidArgument, "setting type %s should not be updated via UpdateUserSetting", storeKey.String())
 	}
@@ -1429,8 +1440,34 @@ func convertSettingKeyToStore(key string) (storepb.UserSetting_Key, error) {
 		return storepb.UserSetting_TAGS, nil
 	case v1pb.UserSetting_Key_name[int32(v1pb.UserSetting_LAST_OPENED)]:
 		return storepb.UserSetting_LAST_OPENED, nil
+	case v1pb.UserSetting_Key_name[int32(v1pb.UserSetting_RAG_SEARCH)]:
+		return storepb.UserSetting_RAG_SEARCH, nil
 	default:
 		return storepb.UserSetting_KEY_UNSPECIFIED, errors.Errorf("unknown setting key: %s", key)
+	}
+}
+
+// ragStoreModeToString / ragStringToStoreMode map between the store enum and the
+// API's string mode representation ("MIXED" / "KEYWORD" / "SEMANTIC").
+func ragStoreModeToString(mode storepb.RagSearchMode) string {
+	switch mode {
+	case storepb.RagSearchMode_KEYWORD:
+		return "KEYWORD"
+	case storepb.RagSearchMode_SEMANTIC:
+		return "SEMANTIC"
+	default:
+		return "MIXED"
+	}
+}
+
+func ragStringToStoreMode(mode string) storepb.RagSearchMode {
+	switch mode {
+	case "KEYWORD":
+		return storepb.RagSearchMode_KEYWORD
+	case "SEMANTIC":
+		return storepb.RagSearchMode_SEMANTIC
+	default:
+		return storepb.RagSearchMode_MIXED
 	}
 }
 
@@ -1447,6 +1484,8 @@ func convertSettingKeyFromStore(key storepb.UserSetting_Key) string {
 		return v1pb.UserSetting_Key_name[int32(v1pb.UserSetting_TAGS)]
 	case storepb.UserSetting_LAST_OPENED:
 		return v1pb.UserSetting_Key_name[int32(v1pb.UserSetting_LAST_OPENED)]
+	case storepb.UserSetting_RAG_SEARCH:
+		return v1pb.UserSetting_Key_name[int32(v1pb.UserSetting_RAG_SEARCH)]
 	default:
 		return "unknown"
 	}
@@ -1516,6 +1555,10 @@ func convertUserSettingFromStore(storeSetting *storepb.UserSetting, user *store.
 			setting.Value = &v1pb.UserSetting_LastOpenedSetting_{
 				LastOpenedSetting: &v1pb.UserSetting_LastOpenedSetting{},
 			}
+		case storepb.UserSetting_RAG_SEARCH:
+			setting.Value = &v1pb.UserSetting_RagSearchSetting_{
+				RagSearchSetting: &v1pb.UserSetting_RagSearchSetting{Mode: "MIXED"},
+			}
 		default:
 			return nil
 		}
@@ -1573,6 +1616,14 @@ func convertUserSettingFromStore(storeSetting *storepb.UserSetting, user *store.
 				Workspace:      lastOpened.GetWorkspace(),
 				Memo:           lastOpened.GetMemo(),
 				WorkspaceMemos: lastOpened.GetWorkspaceMemos(),
+			},
+		}
+	case storepb.UserSetting_RAG_SEARCH:
+		ragSearch := storeSetting.GetRagSearch()
+		setting.Value = &v1pb.UserSetting_RagSearchSetting_{
+			RagSearchSetting: &v1pb.UserSetting_RagSearchSetting{
+				MaxResultDocs: ragSearch.GetMaxResultDocs(),
+				Mode:          ragStoreModeToString(ragSearch.GetMode()),
 			},
 		}
 	default:
@@ -1640,6 +1691,17 @@ func convertUserSettingToStore(apiSetting *v1pb.UserSetting, userID int32, key s
 			}
 		} else {
 			return nil, errors.Errorf("last_opened setting is required")
+		}
+	case storepb.UserSetting_RAG_SEARCH:
+		if ragSearch := apiSetting.GetRagSearchSetting(); ragSearch != nil {
+			storeSetting.Value = &storepb.UserSetting_RagSearch{
+				RagSearch: &storepb.RagSearchUserSetting{
+					MaxResultDocs: ragSearch.MaxResultDocs,
+					Mode:          ragStringToStoreMode(ragSearch.Mode),
+				},
+			}
+		} else {
+			return nil, errors.Errorf("rag_search setting is required")
 		}
 	default:
 		return nil, errors.Errorf("unsupported setting key: %v", key)

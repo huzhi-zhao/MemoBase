@@ -1,5 +1,5 @@
 import dayjs from "dayjs";
-import { CalendarIcon, FilePlusIcon, FolderPlusIcon, LayoutGridIcon, SearchIcon, TagsIcon, UploadIcon } from "lucide-react";
+import { CalendarIcon, FilePlusIcon, FolderPlusIcon, LayoutGridIcon, SearchIcon, TagsIcon, UploadIcon, XIcon } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { calculateMaxCount, MonthCalendar } from "@/components/ActivityCalendar";
 import { MonthNavigator } from "@/components/StatisticsView/MonthNavigator";
@@ -33,6 +33,11 @@ interface Props {
   onMoveFolder: (path: string) => void;
   onDeleteFolder: (path: string) => void;
   onOpenInNewTab?: () => void;
+  // onSearch runs an in-library (F2) search on submit; called with "" when the box is cleared.
+  onSearch?: (query: string) => void;
+  // restrictToMemos, when set, narrows the folder tree to only these hit documents (+ parent
+  // folders), overriding the live title filter while a library search is active.
+  restrictToMemos?: Set<string> | null;
 }
 
 function filterTree(nodes: WorkspaceTreeNode[], query: string): WorkspaceTreeNode[] {
@@ -47,6 +52,29 @@ function filterTree(nodes: WorkspaceTreeNode[], query: string): WorkspaceTreeNod
       return { ...node, children };
     }
     return null;
+  };
+  return nodes.map(walk).filter((n): n is WorkspaceTreeNode => n !== null);
+}
+
+// collectDocMemosByName returns the memo names of every document whose display name
+// matches the (already lowercased) query substring.
+function collectDocMemosByName(nodes: WorkspaceTreeNode[], loweredQuery: string, acc: Set<string>) {
+  for (const node of nodes) {
+    if (node.type === WorkspaceTreeNode_NodeType.DOCUMENT) {
+      if (node.memo && node.name.toLowerCase().includes(loweredQuery)) acc.add(node.memo);
+    } else if (node.children.length > 0) {
+      collectDocMemosByName(node.children, loweredQuery, acc);
+    }
+  }
+}
+
+function filterTreeByMemos(nodes: WorkspaceTreeNode[], memos: Set<string>): WorkspaceTreeNode[] {
+  const walk = (node: WorkspaceTreeNode): WorkspaceTreeNode | null => {
+    if (node.type === WorkspaceTreeNode_NodeType.DOCUMENT) {
+      return node.memo && memos.has(node.memo) ? node : null;
+    }
+    const children = node.children.map(walk).filter((n): n is WorkspaceTreeNode => n !== null);
+    return children.length > 0 ? { ...node, children } : null;
   };
   return nodes.map(walk).filter((n): n is WorkspaceTreeNode => n !== null);
 }
@@ -94,6 +122,8 @@ const NotebookSidebar = ({
   onMoveFolder,
   onDeleteFolder,
   onOpenInNewTab,
+  onSearch,
+  restrictToMemos,
 }: Props) => {
   const t = useTranslate();
   const [query, setQuery] = useState("");
@@ -117,10 +147,27 @@ const NotebookSidebar = ({
   const docDatesRecord = useMemo(() => Object.fromEntries(docDates), [docDates]);
 
   const visibleTree = useMemo(() => {
-    let nodes = filterTree(tree, query);
+    let nodes: WorkspaceTreeNode[];
+    if (restrictToMemos) {
+      // A library search is active: show the union of content matches (RAG hits from the
+      // server) and filename matches (documents whose name contains the query), each with
+      // their parent folders preserved.
+      const union = new Set(restrictToMemos);
+      const loweredQuery = query.trim().toLowerCase();
+      if (loweredQuery) collectDocMemosByName(tree, loweredQuery, union);
+      nodes = filterTreeByMemos(tree, union);
+    } else {
+      // No submitted search yet — apply the live filename filter as the user types.
+      nodes = filterTree(tree, query);
+    }
     if (dateFilter) nodes = filterTreeByDate(nodes, dateFilter);
     return sortTree(nodes, sortField, sortOrder, foldersFirst);
-  }, [tree, query, dateFilter, sortField, sortOrder, foldersFirst]);
+  }, [tree, query, dateFilter, sortField, sortOrder, foldersFirst, restrictToMemos]);
+
+  const clearSearch = () => {
+    setQuery("");
+    onSearch?.("");
+  };
 
   return (
     <div className="w-full h-full flex flex-col gap-2 px-3 py-4">
@@ -136,11 +183,34 @@ const NotebookSidebar = ({
         <div className="relative flex-1">
           <SearchIcon className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 opacity-50" />
           <input
-            className="w-full text-sm bg-sidebar border border-border rounded-lg py-1.5 pl-7 pr-2 outline-0"
+            className="w-full text-sm bg-sidebar border border-border rounded-lg py-1.5 pl-7 pr-7 outline-0"
             placeholder={t("notebook.search-documents")}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              const value = e.target.value;
+              setQuery(value);
+              // Clearing the box restores the full tree and exits the search view.
+              if (value.trim() === "") onSearch?.("");
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                onSearch?.(query);
+              } else if (e.key === "Escape" && restrictToMemos) {
+                clearSearch();
+              }
+            }}
           />
+          {restrictToMemos && (
+            <button
+              type="button"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              onClick={clearSearch}
+              aria-label={t("common.clear")}
+            >
+              <XIcon className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

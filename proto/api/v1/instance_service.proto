@@ -291,6 +291,22 @@ message InstanceSetting {
     // panel. When disabled (the default), the raw extracted text is shown as-is (pages are still
     // separated), avoiding the slow, billable LLM call.
     bool format_pdf_text = 4;
+
+    // embedding configures the text-embedding model used for semantic (vector) search.
+    // When unset or embedding.provider_id is empty, semantic search is disabled and
+    // search falls back to full-text (keyword) retrieval only.
+    EmbeddingConfig embedding = 5;
+  }
+
+  // EmbeddingConfig configures the text-embedding model used to power semantic search.
+  message EmbeddingConfig {
+    // provider_id references an entry in AISetting.providers[].id.
+    // Empty string means semantic search is disabled (keyword-only fallback).
+    string provider_id = 1;
+    // model is the provider-specific embedding model identifier.
+    // OPENAI examples: text-embedding-3-small, text-embedding-3-large.
+    // GEMINI examples: text-embedding-004.
+    string model = 2;
   }
 
   // BackupSetting configures and reports the status of the weekly/manual SQLite-to-S3 database
@@ -426,6 +442,19 @@ message TestAIProviderRequest {
 
   // The model ID to use for the test call.
   string model = 5;
+
+  // Optional. The capability to test. Determines which provider endpoint the
+  // probe calls. Defaults to CHAT when unset.
+  Capability capability = 6 [(google.api.field_behavior) = OPTIONAL];
+
+  // Capability selects which kind of provider call to probe.
+  enum Capability {
+    CAPABILITY_UNSPECIFIED = 0;
+    // CHAT probes the chat/generateContent endpoint.
+    CHAT = 1;
+    // EMBEDDING probes the embeddings/batchEmbedContents endpoint.
+    EMBEDDING = 2;
+  }
 }
 
 // Response message for TestAIProvider.

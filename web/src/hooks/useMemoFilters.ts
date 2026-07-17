@@ -37,10 +37,24 @@ export interface UseMemoFiltersOptions {
   visibilities?: Visibility[];
   /** Exclude non-content doc types (FEED_EXCLUDED_DOC_TYPES) from the result. Set by feed pages like Explore. */
   excludeNonFeedDocTypes?: boolean;
+  /**
+   * Omit contentSearch (keyword) conditions from the CEL filter. Used when the keyword is
+   * handed to RAG search as the query instead, and the remaining structured filters define
+   * the candidate corpus — encoding the keyword as content.contains here would collapse the
+   * corpus to exact substring matches and defeat semantic recall.
+   */
+  excludeContentSearch?: boolean;
 }
 
 export const useMemoFilters = (options: UseMemoFiltersOptions = {}): string | undefined => {
-  const { creatorName, includeShortcuts = false, includePinned = false, visibilities, excludeNonFeedDocTypes = false } = options;
+  const {
+    creatorName,
+    includeShortcuts = false,
+    includePinned = false,
+    visibilities,
+    excludeNonFeedDocTypes = false,
+    excludeContentSearch = false,
+  } = options;
 
   const { shortcuts } = useAuth();
   const { filters, shortcut: currentShortcut } = useMemoFilterContext();
@@ -72,7 +86,9 @@ export const useMemoFilters = (options: UseMemoFiltersOptions = {}): string | un
     const selectedVisibilityNames: string[] = [];
     for (const filter of filters) {
       if (filter.factor === "contentSearch") {
-        conditions.push(`content.contains(${escapeFilterValue(filter.value)})`);
+        if (!excludeContentSearch) {
+          conditions.push(`content.contains(${escapeFilterValue(filter.value)})`);
+        }
       } else if (filter.factor === "tagSearch") {
         conditions.push(`tag in [${escapeFilterValue(filter.value)}]`);
       } else if (filter.factor === "pinned") {
@@ -117,5 +133,5 @@ export const useMemoFilters = (options: UseMemoFiltersOptions = {}): string | un
     }
 
     return conditions.length > 0 ? conditions.join(" && ") : undefined;
-  }, [creatorName, includeShortcuts, includePinned, visibilities, selectedShortcut, filters, excludeNonFeedDocTypes]);
+  }, [creatorName, includeShortcuts, includePinned, visibilities, selectedShortcut, filters, excludeNonFeedDocTypes, excludeContentSearch]);
 };

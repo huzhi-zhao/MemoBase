@@ -36,6 +36,21 @@ func ProbeChat(ctx context.Context, provider ProviderConfig, model string) error
 	}
 }
 
+// ProbeEmbed makes a minimal live embedding call against the given provider to verify that the
+// endpoint, API key, and embedding model are usable. It returns a nil error on success.
+func ProbeEmbed(ctx context.Context, provider ProviderConfig, model string) error {
+	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+	vectors, err := Embed(ctx, provider, model, []string{"hi"})
+	if err != nil {
+		return err
+	}
+	if len(vectors) == 0 || len(vectors[0]) == 0 {
+		return errors.New("provider returned an empty embedding")
+	}
+	return nil
+}
+
 func probeOpenAICompatible(ctx context.Context, provider ProviderConfig, model string) error {
 	endpoint := strings.TrimSpace(provider.Endpoint)
 	if endpoint == "" {

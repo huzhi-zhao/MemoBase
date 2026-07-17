@@ -1487,6 +1487,78 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/Status'
+    /api/v1/rag/indexStatus:
+        get:
+            tags:
+                - RagService
+            description: GetIndexStatus returns the current index queue progress.
+            operationId: RagService_GetIndexStatus
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetIndexStatusResponse'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/v1/rag:rebuildIndex:
+        post:
+            tags:
+                - RagService
+            description: RebuildIndex clears and re-enqueues the entire search index. Instance owners only.
+            operationId: RagService_RebuildIndex
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/RebuildIndexRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/RebuildIndexResponse'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/v1/rag:search:
+        post:
+            tags:
+                - RagService
+            description: |-
+                Search runs a hybrid (full-text + semantic) search over the memos the current
+                 user can access. Global search and in-library search share this RPC, differing
+                 only by scope.
+            operationId: RagService_Search
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/SearchRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SearchResponse'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
     /api/v1/shares/{shareId}:
         get:
             tags:
@@ -3226,6 +3298,28 @@ components:
                     allOf:
                         - $ref: '#/components/schemas/User'
                     description: The authenticated user's information.
+        GetIndexStatusResponse:
+            type: object
+            properties:
+                pending:
+                    type: integer
+                    description: pending is the number of memos waiting to be indexed.
+                    format: int32
+                processing:
+                    type: integer
+                    description: processing is the number of memos currently being indexed.
+                    format: int32
+                failed:
+                    type: integer
+                    description: failed is the number of memos whose indexing failed.
+                    format: int32
+                done:
+                    type: integer
+                    description: done is the number of memos successfully indexed.
+                    format: int32
+                embeddingConfigured:
+                    type: boolean
+                    description: embedding_configured reports whether a semantic-search embedding model is set up.
         GetUserWebhookSigningSecretResponse:
             type: object
             properties:
@@ -3405,6 +3499,13 @@ components:
                          default AI provider to restructure it into Markdown when viewing the PDF's plain-text
                          panel. When disabled (the default), the raw extracted text is shown as-is (pages are still
                          separated), avoiding the slow, billable LLM call.
+                embedding:
+                    allOf:
+                        - $ref: '#/components/schemas/InstanceSetting_EmbeddingConfig'
+                    description: |-
+                        embedding configures the text-embedding model used for semantic (vector) search.
+                         When unset or embedding.provider_id is empty, semantic search is disabled and
+                         search falls back to full-text (keyword) retrieval only.
             description: AI provider configuration settings.
         InstanceSetting_BackupSetting:
             type: object
@@ -3432,6 +3533,21 @@ components:
                  backup. This is instance-wide, admin-only. path_template is editable via UpdateInstanceSetting;
                  the last_backup_* fields are populated by the server after each run and are preserved
                  automatically when only path_template is updated.
+        InstanceSetting_EmbeddingConfig:
+            type: object
+            properties:
+                providerId:
+                    type: string
+                    description: |-
+                        provider_id references an entry in AISetting.providers[].id.
+                         Empty string means semantic search is disabled (keyword-only fallback).
+                model:
+                    type: string
+                    description: |-
+                        model is the provider-specific embedding model identifier.
+                         OPENAI examples: text-embedding-3-small, text-embedding-3-large.
+                         GEMINI examples: text-embedding-004.
+            description: EmbeddingConfig configures the text-embedding model used to power semantic search.
         InstanceSetting_GeneralSetting:
             type: object
             properties:
@@ -4225,6 +4341,16 @@ components:
                     type: string
                     description: Output only. The creation timestamp.
                     format: date-time
+        RebuildIndexRequest:
+            type: object
+            properties: {}
+        RebuildIndexResponse:
+            type: object
+            properties:
+                enqueued:
+                    type: integer
+                    description: Number of memos enqueued for reindexing.
+                    format: int32
         RefreshTokenRequest:
             type: object
             properties: {}
@@ -4264,6 +4390,86 @@ components:
                     description: |-
                         Required. The resource name of the version to restore.
                          Format: memos/{memo}/histories/{history}
+        SearchHit:
+            type: object
+            properties:
+                memo:
+                    type: string
+                    description: 'The memo resource name. Format: memos/{memo}'
+                title:
+                    type: string
+                    description: The memo's user-facing title.
+                workspace:
+                    type: string
+                    description: 'The workspace resource name the memo belongs to. Format: workspaces/{workspace}'
+                folderPath:
+                    type: string
+                    description: The memo's folder path within its workspace.
+                score:
+                    type: number
+                    description: Fused relevance score (higher is more relevant).
+                    format: double
+                snippet:
+                    type: string
+                    description: Best-matching snippet of the memo's content.
+                highlights:
+                    type: array
+                    items:
+                        type: string
+                    description: Substrings within the snippet that matched the query, for client-side highlighting.
+        SearchRequest:
+            required:
+                - query
+            type: object
+            properties:
+                query:
+                    type: string
+                    description: Required. The search query.
+                global:
+                    type: boolean
+                    description: Search across all workspaces the user can access.
+                workspace:
+                    type: string
+                    description: |-
+                        Restrict search to a single workspace, identified by its resource name.
+                         Format: workspaces/{workspace}
+                mode:
+                    enum:
+                        - SEARCH_MODE_UNSPECIFIED
+                        - SEARCH_MODE_MIXED
+                        - SEARCH_MODE_KEYWORD
+                        - SEARCH_MODE_SEMANTIC
+                    type: string
+                    description: Optional. Retrieval mode. Unspecified falls back to the user's configured mode.
+                    format: enum
+                limit:
+                    type: integer
+                    description: Optional. Max documents to return. Zero falls back to the user's configured limit.
+                    format: int32
+                filter:
+                    type: string
+                    description: |-
+                        Optional. A CEL filter (same grammar as ListMemos.filter) that constrains the
+                         candidate document set BEFORE ranking. Structured conditions (workspace, tag,
+                         visibility, time, doc_type, …) define the corpus; the query then ranks within it.
+                         The keyword itself must NOT be encoded here as content.contains — pass it as `query`
+                         so semantic recall isn't lost. Permission scoping is always applied on top.
+        SearchResponse:
+            type: object
+            properties:
+                hits:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/SearchHit'
+                effectiveMode:
+                    enum:
+                        - SEARCH_MODE_UNSPECIFIED
+                        - SEARCH_MODE_MIXED
+                        - SEARCH_MODE_KEYWORD
+                        - SEARCH_MODE_SEMANTIC
+                    type: string
+                    description: The mode actually applied (may be downgraded to KEYWORD when no embedding model is configured).
+                    format: enum
         SetMemoAttachmentsRequest:
             required:
                 - name
@@ -4447,6 +4653,16 @@ components:
                 model:
                     type: string
                     description: The model ID to use for the test call.
+                capability:
+                    enum:
+                        - CAPABILITY_UNSPECIFIED
+                        - CHAT
+                        - EMBEDDING
+                    type: string
+                    description: |-
+                        Optional. The capability to test. Determines which provider endpoint the
+                         probe calls. Defaults to CHAT when unset.
+                    format: enum
             description: Request message for TestAIProvider.
         TestAIProviderResponse:
             type: object
@@ -4678,6 +4894,8 @@ components:
                     $ref: '#/components/schemas/UserSetting_TagsSetting'
                 lastOpenedSetting:
                     $ref: '#/components/schemas/UserSetting_LastOpenedSetting'
+                ragSearchSetting:
+                    $ref: '#/components/schemas/UserSetting_RagSearchSetting'
             description: User settings message
         UserSetting_GeneralSetting:
             type: object
@@ -4712,6 +4930,17 @@ components:
                         type: string
                     description: Map of workspace resource name to the memo resource name last opened within it.
             description: The last workspace/document the user had open in the Notebook home page.
+        UserSetting_RagSearchSetting:
+            type: object
+            properties:
+                maxResultDocs:
+                    type: integer
+                    description: Max documents to return. Zero falls back to the engine default (20).
+                    format: int32
+                mode:
+                    type: string
+                    description: 'Retrieval mode: one of "MIXED", "KEYWORD", "SEMANTIC". Empty falls back to "MIXED".'
+            description: Per-user RAG search preferences.
         UserSetting_TagMetadata:
             type: object
             properties:
@@ -4946,6 +5175,7 @@ tags:
     - name: IdentityProviderService
     - name: InstanceService
     - name: MemoService
+    - name: RagService
     - name: ShortcutService
     - name: UserService
     - name: WorkspaceService

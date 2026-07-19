@@ -2,6 +2,8 @@
 // markdown content. Operates on lines directly rather than an AST, since
 // fenced code block contents are opaque to markdown ASTs.
 
+import { eventRefFor, resolveEventRef } from "./parseCalendarBlock";
+
 const FENCE_START_RE = /^```calendar\s*$/;
 const FENCE_END_RE = /^```\s*$/;
 const DATE_LINE_RE = /^-\s+(\d{4}-\d{2}-\d{2})\s*$/;
@@ -109,7 +111,15 @@ export function upsertCalendarItem(content: string, date: string, rawInput: stri
  *
  * 未找到 calendar 块时原样返回。
  */
-export function toggleCalendarEvent(content: string, date: string, name: string, occurred: boolean): string {
+export function toggleCalendarEvent(content: string, date: string, name: string, occurred: boolean, events: string[] = []): string {
+  // 写入用 1 基下标（`- @1`），这样重命名 event 时历史打点无需迁移；
+  // 匹配时同时接受下标与旧的名称写法。
+  const ref = eventRefFor(name, events);
+  const matchesEvent = (raw: string) => {
+    const trimmed = raw.trim();
+    return trimmed === ref || trimmed === name || resolveEventRef(trimmed, events) === name;
+  };
+
   const location = locateCalendarFence(content);
   if (!location) {
     return content;
@@ -142,7 +152,7 @@ export function toggleCalendarEvent(content: string, date: string, name: string,
   if (dateLineIndex !== -1) {
     for (let i = dateLineIndex + 1; i < groupEnd; i++) {
       const match = EVENT_ITEM_RE.exec(blockLines[i]);
-      if (match && match[1].trim() === name) {
+      if (match && matchesEvent(match[1])) {
         existingIndex = i;
         break;
       }
@@ -151,7 +161,7 @@ export function toggleCalendarEvent(content: string, date: string, name: string,
 
   if (occurred) {
     if (existingIndex !== -1) return content; // 已存在，无需变更
-    const eventLine = `- @${name}`;
+    const eventLine = `- @${ref}`;
     let newBlockLines: string[];
     if (dateLineIndex !== -1) {
       newBlockLines = [...blockLines.slice(0, dateLineIndex + 1), eventLine, ...blockLines.slice(dateLineIndex + 1)];

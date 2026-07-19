@@ -1,3 +1,4 @@
+import dayjs from "dayjs";
 import { useMemo, useState } from "react";
 import { useTodayDate } from "@/components/ActivityCalendar/hooks";
 import { useMemoViewContextOptional } from "@/components/MemoView/MemoViewContext";
@@ -20,7 +21,7 @@ export const CalendarBlock = ({ children }: CalendarBlockProps) => {
   const t = useTranslate();
   const codeContent = extractCodeContent(children);
   const parsed = useMemo(() => parseCalendarBlock(codeContent), [codeContent]);
-  const { events, groups } = parsed;
+  const { events, groups, allowMaxUpdateDays } = parsed;
 
   const datedGroups = useMemo(() => groups.filter((g) => g.date), [groups]);
   const ungroupedItems = (groups.find((g) => !g.date)?.items ?? []).filter((i) => !i.isEvent);
@@ -34,8 +35,16 @@ export const CalendarBlock = ({ children }: CalendarBlockProps) => {
   const readonly = memoViewContext?.readonly ?? true;
   const { mutate: updateMemo } = useUpdateMemo();
 
+  // allowMaxUpdateDays: N 时只允许改动最近 N 天（含今天）及未来的日期，
+  // 避免误点历史格子导致旧记录被改写。
+  const isDateEditable = (date: string) => {
+    if (!allowMaxUpdateDays || allowMaxUpdateDays <= 0) return true;
+    const daysAgo = dayjs(today).diff(dayjs(date), "day");
+    return daysAgo < allowMaxUpdateDays;
+  };
+
   const handleAddItems = (date: string, rawInput: string) => {
-    if (!memo) return;
+    if (!memo || !isDateEditable(date)) return;
     const newContent = upsertCalendarItem(memo.content, date, rawInput);
     if (newContent === memo.content) return;
     updateMemo({
@@ -48,7 +57,7 @@ export const CalendarBlock = ({ children }: CalendarBlockProps) => {
   };
 
   const handleToggleItem = (date: string, itemIndex: number, checked: boolean) => {
-    if (!memo) return;
+    if (!memo || !isDateEditable(date)) return;
     const newContent = toggleCalendarItem(memo.content, date, itemIndex, checked);
     if (newContent === memo.content) return;
     updateMemo({
@@ -61,8 +70,8 @@ export const CalendarBlock = ({ children }: CalendarBlockProps) => {
   };
 
   const handleToggleEvent = (date: string, name: string, occurred: boolean) => {
-    if (!memo) return;
-    const newContent = toggleCalendarEvent(memo.content, date, name, occurred);
+    if (!memo || !isDateEditable(date)) return;
+    const newContent = toggleCalendarEvent(memo.content, date, name, occurred, events);
     if (newContent === memo.content) return;
     updateMemo({
       update: {
@@ -148,7 +157,7 @@ export const CalendarBlock = ({ children }: CalendarBlockProps) => {
           <CalendarDayDetail
             group={selectedGroup}
             selectedDate={effectiveDate}
-            readonly={readonly}
+            readonly={readonly || !isDateEditable(effectiveDate)}
             events={events}
             onAddItems={memo ? handleAddItems : undefined}
             onToggleItem={memo ? handleToggleItem : undefined}

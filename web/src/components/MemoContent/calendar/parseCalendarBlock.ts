@@ -12,9 +12,11 @@ export interface CalendarGroup {
 export interface ParsedCalendar {
   events: string[]; // 预定义的 event 名称列表，顺序即颜色下标
   groups: CalendarGroup[];
+  allowMaxUpdateDays?: number; // 仅允许编辑最近 N 天内的日期，避免误点历史数据
 }
 
 const EVENTS_LINE_RE = /^@?events:\s*(.*)$/i;
+const ALLOW_MAX_UPDATE_DAYS_RE = /^@?allowMaxUpdateDays:\s*(\d+)\s*$/i;
 const DATE_LINE_RE = /^-\s+(\d{4}-\d{2}-\d{2})\s*$/;
 const EVENT_ITEM_RE = /^-\s+@(.+)$/;
 const ITEM_LINE_RE = /^-\s+(?:\[([ xX])\]\s+)?(.+)$/;
@@ -26,13 +28,40 @@ function parseEventsLine(raw: string): string[] {
     .filter(Boolean);
 }
 
+/**
+ * 把 `- @xxx` 中的引用解析为 event 名称。
+ * 纯数字为 1 基下标（指向 events 列表），这样重命名 event 时历史数据无需改动；
+ * 其他情况按名称原样返回（兼容旧数据）。
+ */
+export function resolveEventRef(ref: string, events: string[]): string {
+  if (/^\d+$/.test(ref)) {
+    return events[Number(ref) - 1] ?? ref;
+  }
+  return ref;
+}
+
+/** 写入时使用的引用形式：已预定义的 event 用 1 基下标，否则退回名称。 */
+export function eventRefFor(name: string, events: string[]): string {
+  const index = events.indexOf(name);
+  return index === -1 ? name : String(index + 1);
+}
+
 export function parseCalendarBlock(raw: string): ParsedCalendar {
   const groups: CalendarGroup[] = [];
   const events: string[] = [];
+  let allowMaxUpdateDays: number | undefined;
   let ungrouped: CalendarGroup | undefined;
   let current: CalendarGroup | undefined;
+  // event 引用可能是下标，而 events: 行不保证出现在数据之前，故先记下待解析的条目。
+  const pendingEventItems: { item: CalendarItem; ref: string }[] = [];
 
   for (const line of raw.split("\n")) {
+    const daysMatch = ALLOW_MAX_UPDATE_DAYS_RE.exec(line.trim());
+    if (daysMatch) {
+      allowMaxUpdateDays = Number(daysMatch[1]);
+      continue;
+    }
+
     const eventsMatch = EVENTS_LINE_RE.exec(line.trim());
     if (eventsMatch) {
       for (const name of parseEventsLine(eventsMatch[1])) {
@@ -50,7 +79,9 @@ export function parseCalendarBlock(raw: string): ParsedCalendar {
 
     const eventMatch = EVENT_ITEM_RE.exec(line);
     if (eventMatch) {
-      const item: CalendarItem = { text: eventMatch[1].trim(), isEvent: true };
+      const ref = eventMatch[1].trim();
+      const item: CalendarItem = { text: ref, isEvent: true };
+      pendingEventItems.push({ item, ref });
       if (current) {
         current.items.push(item);
       } else {
@@ -77,9 +108,13 @@ export function parseCalendarBlock(raw: string): ParsedCalendar {
     }
   }
 
+  for (const { item, ref } of pendingEventItems) {
+    item.text = resolveEventRef(ref, events);
+  }
+
   if (ungrouped) {
     groups.unshift(ungrouped);
   }
 
-  return { events, groups };
+  return { events, groups, allowMaxUpdateDays };
 }

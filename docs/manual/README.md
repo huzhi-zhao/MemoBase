@@ -16,7 +16,9 @@ one.
 | 3 | [Gallery Views](./03-gallery-views.md) | Notion-style `view` documents: creating a gallery, scopes, sorting, cover rules, card fields, and how views stay live. |
 | 4 | [Markdown Editor Optimization ](04-md-editor-optimization.md) | Notion / Obsidian–style formatting shortcuts in the CodeMirror editor: bold, italic, code, links, lists, headings, and what's intentionally deferred. |
 | 5 | [memogit CLI](./05-memogit-cli.md) | Checking a knowledge base out to local files with the `memogit` command-line tool: install, `login` / `clone` / `pull` / `push` / `status`, the workspace/folder-path/doc-type file layout, one-way attachment download, IDE-mergeable conflict resolution, config & state, and troubleshooting. |
-| 6 | [Kanban Board](./06-kanban-board.md) | The `kanban` fenced block: YAML task syntax, fields & custom fields, column ordering, and the interactive gestures (done-toggle, drag-to-move, add-card) that write changes back into the Markdown. |
+| 6 | [View Blocks](./06-view-blocks.md) | The four interactive fenced blocks — `calendar`, `kanban`, `grid`, `sheets`: their syntax, fields, formulas, interactive write-back gestures, and a [complete copy-paste demo](./demo-views.md). |
+| 7 | [HTTP API Reference](./07-api-reference.md) | The JSON/HTTP API for the knowledge-base features: `WorkspaceService`, `RagService` (hybrid search), `AIService` (writing assistants), and the workspace / folder / doc-type / share-link additions to `MemoService`. |
+| 8 | [Document Comments](./08-document-comments.md) | Commenting on a document while reading it in the Notebook: the shared comment panel (reused from PDF annotations), heading anchoring for Markdown docs, the outline/comments dock toggle, and the `DocAnchor` data model. |
 
 ## Core concepts at a glance
 

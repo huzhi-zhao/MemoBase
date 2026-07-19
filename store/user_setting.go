@@ -465,6 +465,12 @@ func convertUserSettingFromRaw(raw *UserSetting) (*storepb.UserSetting, error) {
 			return nil, err
 		}
 		userSetting.Value = &storepb.UserSetting_LastOpened{LastOpened: lastOpenedUserSetting}
+	case storepb.UserSetting_RAG_SEARCH:
+		ragSearchUserSetting := &storepb.RagSearchUserSetting{}
+		if err := protojsonUnmarshaler.Unmarshal([]byte(raw.Value), ragSearchUserSetting); err != nil {
+			return nil, errors.Wrap(err, "unmarshal rag search user setting")
+		}
+		userSetting.Value = &storepb.UserSetting_RagSearch{RagSearch: ragSearchUserSetting}
 	default:
 		return nil, nil
 	}
@@ -525,6 +531,13 @@ func convertUserSettingToRaw(userSetting *storepb.UserSetting) (*UserSetting, er
 		value, err := protojson.Marshal(lastOpenedUserSetting)
 		if err != nil {
 			return nil, err
+		}
+		raw.Value = string(value)
+	case storepb.UserSetting_RAG_SEARCH:
+		ragSearchUserSetting := userSetting.GetRagSearch()
+		value, err := protojson.Marshal(ragSearchUserSetting)
+		if err != nil {
+			return nil, errors.Wrap(err, "marshal rag search user setting")
 		}
 		raw.Value = string(value)
 	default:

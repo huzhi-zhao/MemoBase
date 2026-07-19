@@ -13,8 +13,20 @@ import { useResolvedMentionUsernames } from "./MentionResolutionContext";
 import type { MemoContentProps } from "./types";
 
 const MemoContent = (props: MemoContentProps) => {
-  const { className, contentClassName, content, isHtml, isPdf, pdfTitle, pdfUrl, pdfAttachment, pdfDetailView, actions, onClick, onDoubleClick } =
-    props;
+  const {
+    className,
+    contentClassName,
+    content,
+    isHtml,
+    isPdf,
+    pdfTitle,
+    pdfUrl,
+    pdfAttachment,
+    pdfDetailView,
+    actions,
+    onClick,
+    onDoubleClick,
+  } = props;
   const t = useTranslate();
   const [htmlPreviewHeight, setHtmlPreviewHeight] = useState(0);
   const {
@@ -65,6 +77,7 @@ const MemoContent = (props: MemoContentProps) => {
             resolvedMentionUsernames={resolvedMentionUsernames}
             memoName={props.memoName}
             compact={Boolean(props.compact)}
+            headingIdPrefix={props.headingIdPrefix}
           />
         )}
         {showCompactMode === "ALL" && (

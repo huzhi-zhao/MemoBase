@@ -26,6 +26,12 @@ func resolveEmbedding(ctx context.Context, s *store.Store) (EmbeddingResolution,
 		return EmbeddingResolution{}, err
 	}
 	embedding := setting.GetEmbedding()
+	// Explicitly switched off: keep the provider/model selection on record but behave
+	// exactly as if nothing were configured, so the indexer stores chunk text without
+	// calling any embedding API and search falls back to keyword retrieval.
+	if embedding.GetDisabled() {
+		return EmbeddingResolution{}, nil
+	}
 	providerID := embedding.GetProviderId()
 	if providerID == "" {
 		return EmbeddingResolution{}, nil

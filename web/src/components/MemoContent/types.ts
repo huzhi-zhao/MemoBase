@@ -26,6 +26,8 @@ export interface MemoContentProps {
   actions?: React.ReactNode;
   className?: string;
   contentClassName?: string;
+  /** Prefix for rendered heading ids, to keep them unique across multi-snippet documents (e.g. gallery View blocks). */
+  headingIdPrefix?: string;
   onClick?: (e: React.MouseEvent) => void;
   onDoubleClick?: (e: React.MouseEvent) => void;
 }

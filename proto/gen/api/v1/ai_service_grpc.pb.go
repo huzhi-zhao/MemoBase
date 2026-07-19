@@ -19,8 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AIService_Transcribe_FullMethodName     = "/memos.api.v1.AIService/Transcribe"
-	AIService_FormatMarkdown_FullMethodName = "/memos.api.v1.AIService/FormatMarkdown"
+	AIService_Transcribe_FullMethodName      = "/memos.api.v1.AIService/Transcribe"
+	AIService_FormatMarkdown_FullMethodName  = "/memos.api.v1.AIService/FormatMarkdown"
+	AIService_PolishText_FullMethodName      = "/memos.api.v1.AIService/PolishText"
+	AIService_GenerateFormula_FullMethodName = "/memos.api.v1.AIService/GenerateFormula"
 )
 
 // AIServiceClient is the client API for AIService service.
@@ -32,6 +34,12 @@ type AIServiceClient interface {
 	// FormatMarkdown restructures plain text into markdown using an instance AI provider,
 	// preserving the original text content verbatim.
 	FormatMarkdown(ctx context.Context, in *FormatMarkdownRequest, opts ...grpc.CallOption) (*FormatMarkdownResponse, error)
+	// PolishText rewrites a selected span of text using an instance AI provider,
+	// following a preset or custom instruction, and returns the rewritten text.
+	PolishText(ctx context.Context, in *PolishTextRequest, opts ...grpc.CallOption) (*PolishTextResponse, error)
+	// GenerateFormula produces a spreadsheet formula from a natural-language prompt
+	// using an instance AI provider, returning only the formula string.
+	GenerateFormula(ctx context.Context, in *GenerateFormulaRequest, opts ...grpc.CallOption) (*GenerateFormulaResponse, error)
 }
 
 type aIServiceClient struct {
@@ -62,6 +70,26 @@ func (c *aIServiceClient) FormatMarkdown(ctx context.Context, in *FormatMarkdown
 	return out, nil
 }
 
+func (c *aIServiceClient) PolishText(ctx context.Context, in *PolishTextRequest, opts ...grpc.CallOption) (*PolishTextResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PolishTextResponse)
+	err := c.cc.Invoke(ctx, AIService_PolishText_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aIServiceClient) GenerateFormula(ctx context.Context, in *GenerateFormulaRequest, opts ...grpc.CallOption) (*GenerateFormulaResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GenerateFormulaResponse)
+	err := c.cc.Invoke(ctx, AIService_GenerateFormula_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AIServiceServer is the server API for AIService service.
 // All implementations must embed UnimplementedAIServiceServer
 // for forward compatibility.
@@ -71,6 +99,12 @@ type AIServiceServer interface {
 	// FormatMarkdown restructures plain text into markdown using an instance AI provider,
 	// preserving the original text content verbatim.
 	FormatMarkdown(context.Context, *FormatMarkdownRequest) (*FormatMarkdownResponse, error)
+	// PolishText rewrites a selected span of text using an instance AI provider,
+	// following a preset or custom instruction, and returns the rewritten text.
+	PolishText(context.Context, *PolishTextRequest) (*PolishTextResponse, error)
+	// GenerateFormula produces a spreadsheet formula from a natural-language prompt
+	// using an instance AI provider, returning only the formula string.
+	GenerateFormula(context.Context, *GenerateFormulaRequest) (*GenerateFormulaResponse, error)
 	mustEmbedUnimplementedAIServiceServer()
 }
 
@@ -86,6 +120,12 @@ func (UnimplementedAIServiceServer) Transcribe(context.Context, *TranscribeReque
 }
 func (UnimplementedAIServiceServer) FormatMarkdown(context.Context, *FormatMarkdownRequest) (*FormatMarkdownResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method FormatMarkdown not implemented")
+}
+func (UnimplementedAIServiceServer) PolishText(context.Context, *PolishTextRequest) (*PolishTextResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PolishText not implemented")
+}
+func (UnimplementedAIServiceServer) GenerateFormula(context.Context, *GenerateFormulaRequest) (*GenerateFormulaResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GenerateFormula not implemented")
 }
 func (UnimplementedAIServiceServer) mustEmbedUnimplementedAIServiceServer() {}
 func (UnimplementedAIServiceServer) testEmbeddedByValue()                   {}
@@ -144,6 +184,42 @@ func _AIService_FormatMarkdown_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AIService_PolishText_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PolishTextRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).PolishText(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_PolishText_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).PolishText(ctx, req.(*PolishTextRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AIService_GenerateFormula_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GenerateFormulaRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).GenerateFormula(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_GenerateFormula_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).GenerateFormula(ctx, req.(*GenerateFormulaRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AIService_ServiceDesc is the grpc.ServiceDesc for AIService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -158,6 +234,14 @@ var AIService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FormatMarkdown",
 			Handler:    _AIService_FormatMarkdown_Handler,
+		},
+		{
+			MethodName: "PolishText",
+			Handler:    _AIService_PolishText_Handler,
+		},
+		{
+			MethodName: "GenerateFormula",
+			Handler:    _AIService_GenerateFormula_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

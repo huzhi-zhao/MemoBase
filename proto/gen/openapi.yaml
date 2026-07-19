@@ -33,6 +33,60 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/Status'
+    /api/v1/ai:generateFormula:
+        post:
+            tags:
+                - AIService
+            description: |-
+                GenerateFormula produces a spreadsheet formula from a natural-language prompt
+                 using an instance AI provider, returning only the formula string.
+            operationId: AIService_GenerateFormula
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/GenerateFormulaRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GenerateFormulaResponse'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/v1/ai:polishText:
+        post:
+            tags:
+                - AIService
+            description: |-
+                PolishText rewrites a selected span of text using an instance AI provider,
+                 following a preset or custom instruction, and returns the rewritten text.
+            operationId: AIService_PolishText
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/PolishTextRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/PolishTextResponse'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
     /api/v1/ai:transcribe:
         post:
             tags:
@@ -3253,6 +3307,17 @@ components:
                 path:
                     type: string
                     description: Required. The folder path to delete. Must contain no memos or subfolders.
+        DocAnchor:
+            type: object
+            properties:
+                headingSlug:
+                    type: string
+                    description: |-
+                        The slug (DOM id) of the heading this comment is anchored to. Empty means the
+                         comment is anchored to the top of the document (no preceding heading).
+                headingText:
+                    type: string
+                    description: The heading's display text, shown as the comment's anchor label.
         FieldMapping:
             type: object
             properties:
@@ -3291,6 +3356,27 @@ components:
                 logoUrl:
                     type: string
             description: Custom profile configuration for instance branding.
+        GenerateFormulaRequest:
+            required:
+                - prompt
+            type: object
+            properties:
+                prompt:
+                    type: string
+                    description: |-
+                        Required. A natural-language description of the formula to generate
+                         (e.g. "sum the price column", "average of B2 to B10").
+                context:
+                    type: string
+                    description: |-
+                        Optional. Spreadsheet context to ground the formula, such as the active
+                         cell reference and the sheet's header row / sample rows.
+        GenerateFormulaResponse:
+            type: object
+            properties:
+                formula:
+                    type: string
+                    description: The generated formula, beginning with "=".
         GetCurrentUserResponse:
             type: object
             properties:
@@ -3547,6 +3633,12 @@ components:
                         model is the provider-specific embedding model identifier.
                          OPENAI examples: text-embedding-3-small, text-embedding-3-large.
                          GEMINI examples: text-embedding-004.
+                disabled:
+                    type: boolean
+                    description: |-
+                        disabled turns off vector building and semantic retrieval while keeping the
+                         provider/model selection above. Keyword (FTS) search is unaffected; re-enabling
+                         triggers a full backfill of the missing vectors.
             description: EmbeddingConfig configures the text-embedding model used to power semantic search.
         InstanceSetting_GeneralSetting:
             type: object
@@ -4060,6 +4152,22 @@ components:
                     description: |-
                         Optional. Set when this memo is a comment anchored to a location within
                          a PDF attachment.
+                docAnchor:
+                    allOf:
+                        - $ref: '#/components/schemas/DocAnchor'
+                    description: |-
+                        Optional. Set when this memo is a comment anchored to a heading within a
+                         document memo (markdown/view).
+                nodeOverlays:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    description: |-
+                        Optional. Supplementary per-node data keyed by an in-document node anchor id
+                         (e.g. a `sheets` block's `id:`). The value is an opaque JSON string whose
+                         shape is owned by the node's renderer; the server never parses it. Lets
+                         clients attach overlay info (cell styles, etc.) to any addressable node
+                         without touching that node's raw content.
         MemoHistory:
             type: object
             properties:
@@ -4309,6 +4417,31 @@ components:
             description: |-
                 PersonalAccessToken represents a long-lived token for API/script access.
                  PATs are distinct from short-lived JWT access tokens used for session authentication.
+        PolishTextRequest:
+            required:
+                - text
+            type: object
+            properties:
+                text:
+                    type: string
+                    description: Required. The selected text to rewrite.
+                instruction:
+                    type: string
+                    description: |-
+                        Optional. A custom instruction describing how to rewrite the text
+                         (e.g. "make it more formal", "cut the length in half"). When empty,
+                         the preset field is used.
+                preset:
+                    type: string
+                    description: |-
+                        Optional. A named preset action, used when instruction is empty.
+                         One of: "polish", "concise", "expand", "grammar", "tone".
+        PolishTextResponse:
+            type: object
+            properties:
+                text:
+                    type: string
+                    description: The rewritten text.
         Reaction:
             required:
                 - contentId

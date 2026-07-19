@@ -8,7 +8,7 @@
 > **同步契约**。踩到它们会静默丢数据或制造假冲突。
 >
 > 本文是 [`docs/manual/`](.) 下 6 篇正式手册（面向人类）的**浓缩 + 面向代理**版。
-> 需要细节时回查对应章节：`01-knowledge-base.md` … `06-kanban-board.md`。
+> 需要细节时回查对应章节：`01-knowledge-base.md` … `08-document-comments.md`（视图块见 `06-view-blocks.md`，可运行示例见 `demo-views.md`）。
 
 ---
 

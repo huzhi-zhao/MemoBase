@@ -579,6 +579,22 @@ func (s *ConnectServiceHandler) FormatMarkdown(ctx context.Context, req *connect
 	return connect.NewResponse(resp), nil
 }
 
+func (s *ConnectServiceHandler) PolishText(ctx context.Context, req *connect.Request[v1pb.PolishTextRequest]) (*connect.Response[v1pb.PolishTextResponse], error) {
+	resp, err := s.APIV1Service.PolishText(ctx, req.Msg)
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return connect.NewResponse(resp), nil
+}
+
+func (s *ConnectServiceHandler) GenerateFormula(ctx context.Context, req *connect.Request[v1pb.GenerateFormulaRequest]) (*connect.Response[v1pb.GenerateFormulaResponse], error) {
+	resp, err := s.APIV1Service.GenerateFormula(ctx, req.Msg)
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return connect.NewResponse(resp), nil
+}
+
 // RagService
 
 func (s *ConnectServiceHandler) Search(ctx context.Context, req *connect.Request[v1pb.SearchRequest]) (*connect.Response[v1pb.SearchResponse], error) {

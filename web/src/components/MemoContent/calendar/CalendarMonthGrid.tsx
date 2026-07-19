@@ -17,6 +17,8 @@ interface CalendarMonthGridProps {
   onMonthChange: (month: VisibleMonth) => void;
   itemCounts: Record<string, number>;
   itemsByDate: Record<string, CalendarItem[]>;
+  eventsByDate: Record<string, string[]>;
+  events: string[];
   selectedDate?: string;
   onSelectDate: (date: string) => void;
 }
@@ -33,6 +35,8 @@ export const CalendarMonthGrid = ({
   onMonthChange,
   itemCounts,
   itemsByDate,
+  eventsByDate,
+  events,
   selectedDate,
   onSelectDate,
 }: CalendarMonthGridProps) => {
@@ -118,6 +122,8 @@ export const CalendarMonthGrid = ({
             key={day.date}
             day={day}
             items={itemsByDate[day.date] ?? []}
+            dayEvents={eventsByDate[day.date] ?? []}
+            events={events}
             onClick={day.isCurrentMonth ? onSelectDate : undefined}
           />
         ))}

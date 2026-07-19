@@ -207,6 +207,14 @@ message EmbeddingConfig {
   // OPENAI examples: text-embedding-3-small, text-embedding-3-large.
   // GEMINI examples: text-embedding-004.
   string model = 2;
+
+  // disabled turns off vector building and semantic retrieval without discarding the
+  // provider/model selection above, so it can be restored later. While disabled the
+  // indexer still stores chunk text (keyword/FTS search keeps working) but calls no
+  // embedding API; re-enabling triggers a full backfill of the missing vectors.
+  // Inverted (rather than an `enabled` flag) so the zero value preserves the
+  // pre-existing behaviour of embedding whenever a provider is configured.
+  bool disabled = 3;
 }
 
 message AIProviderConfig {

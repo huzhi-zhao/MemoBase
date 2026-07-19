@@ -30,6 +30,37 @@ func TestUserSettingStore(t *testing.T) {
 	ts.Close()
 }
 
+// RAG_SEARCH was missing from the store's setting (de)serialization switches, so
+// saving a search mode failed with "unsupported user setting key" and the value
+// never round-tripped. Cover both directions.
+func TestUserSettingRagSearch(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	ts := NewTestingStore(ctx, t)
+	user, err := createTestingHostUser(ctx, ts)
+	require.NoError(t, err)
+
+	_, err = ts.UpsertUserSetting(ctx, &storepb.UserSetting{
+		UserId: user.ID,
+		Key:    storepb.UserSetting_RAG_SEARCH,
+		Value: &storepb.UserSetting_RagSearch{RagSearch: &storepb.RagSearchUserSetting{
+			MaxResultDocs: 42,
+			Mode:          storepb.RagSearchMode_KEYWORD,
+		}},
+	})
+	require.NoError(t, err)
+
+	setting, err := ts.GetUserSetting(ctx, &store.FindUserSetting{
+		UserID: &user.ID,
+		Key:    storepb.UserSetting_RAG_SEARCH,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, setting)
+	require.Equal(t, int32(42), setting.GetRagSearch().GetMaxResultDocs())
+	require.Equal(t, storepb.RagSearchMode_KEYWORD, setting.GetRagSearch().GetMode())
+	ts.Close()
+}
+
 func TestUserSettingGetByUserID(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

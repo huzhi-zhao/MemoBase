@@ -10,6 +10,8 @@ import { GridBlock } from "./GridBlock";
 import { KanbanBlock } from "./KanbanBlock";
 import { MermaidBlock } from "./MermaidBlock";
 import type { ReactMarkdownProps } from "./markdown/types";
+import { SheetsBlock } from "./SheetsBlock";
+
 import { extractCodeContent, extractLanguage } from "./utils";
 
 interface CodeBlockProps extends ReactMarkdownProps {
@@ -109,6 +111,21 @@ export const CodeBlock = ({ children, className, node: _node, ...props }: CodeBl
         <GridBlock className={cn(className)} {...props}>
           {children}
         </GridBlock>
+      </pre>
+    );
+  }
+
+  // If it's a sheets block, render with SheetsBlock component. The block's style
+  // overlay anchor lives on the fence info string (```sheets id=xxx); the
+  // remark-sheets-id plugin promotes it to a real `data-sheet-id` attribute,
+  // because the raw fence meta on `node.data` is stripped by rehype-raw.
+  if (language === "sheets") {
+    const blockId = (codeElement?.props as { "data-sheet-id"?: string } | undefined)?.["data-sheet-id"];
+    return (
+      <pre className="relative">
+        <SheetsBlock className={cn(className)} blockId={blockId} {...props}>
+          {children}
+        </SheetsBlock>
       </pre>
     );
   }

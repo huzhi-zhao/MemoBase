@@ -213,3 +213,65 @@ This is ==important== and this is ===also important, differently===.
 - **No editor shortcut yet:** unlike bold/italic/strikethrough, there's no
   toolbar button or keyboard toggle for highlight — type the `=` delimiters
   directly in the editor. See the note in [4.2](#42-not-supported-intentionally-deferred).
+
+## 4.5 AI Rewrite (润色)
+
+Select any text in the editor and rewrite it with your instance's AI provider —
+polish the wording, tighten it, expand it, fix grammar, or follow a free-form
+instruction of your own. The rewrite replaces the selection in place, and a
+plain **Cmd/Ctrl-Z** undoes it.
+
+### Prerequisites
+
+An AI provider must be configured for the instance. The instance owner sets one
+up under **Settings → AI** (BYOK: an OpenAI-compatible or Gemini key) and marks
+it as the **default provider**. Without a default provider the rewrite call
+fails with *"no default AI provider is configured"*. This is the same provider
+used by audio transcription and PDF "Format with AI".
+
+### How to use it
+
+1. **Select** the text you want to rewrite (a phrase, a sentence, or several
+   paragraphs). A floating **✨ AI** button appears just above the selection.
+2. **Click it** to open the rewrite popover.
+3. Pick a **preset**, or type a **custom instruction** and run it:
+
+   | Preset | What it does |
+   | --- | --- |
+   | **Polish** | Improves clarity, flow, and word choice; keeps the meaning. |
+   | **Make concise** | Removes redundancy and tightens wording without dropping key information. |
+   | **Expand** | Adds detail and elaboration, faithful to the original intent. |
+   | **Fix grammar** | Corrects grammar, spelling, and punctuation only. |
+   | **Adjust tone** | Makes the tone more natural and appropriate. |
+
+   For anything a preset doesn't cover, type an instruction in the box
+   (e.g. *"make it more formal"*, *"cut the length in half"*, *"改写成要点列表"*)
+   and press the **Rewrite** button or **Cmd/Ctrl-Enter**.
+4. The result **replaces your selection** directly. If you don't like it, press
+   **Cmd/Ctrl-Z** once to restore the original text.
+
+### Language behavior
+
+The rewrite is returned in **the same language as the selected text**,
+regardless of the language of your instruction or the preset labels. So an
+English instruction like "make it formal" applied to a Chinese selection still
+returns Chinese. Write your instruction in whichever language is convenient —
+only the selection's language decides the output.
+
+### Notes & limits
+
+- **Selection cap:** up to 128 KiB of selected text per request.
+- **Custom instruction wins:** if you type an instruction, the preset is
+  ignored for that run.
+- **Not streaming:** the popover shows a spinner while the request runs and then
+  swaps in the full result at once.
+- **Formatting preserved:** existing Markdown in the selection (bold, links,
+  lists, …) is kept.
+- **Undo integration:** the replacement is a single editor edit, so one
+  Cmd/Ctrl-Z reverts it. External document syncs (loading/switching a memo) are
+  kept out of the undo history, so undo never rewinds past your own edits into a
+  blank editor.
+
+Under the hood this calls `AIService.PolishText`; see
+[Manual 7.4](./07-api-reference.md#74-aiservice--writing-assistants) for the
+HTTP shape.

@@ -163,13 +163,17 @@ func TestInstanceSettingMemoRelatedSetting(t *testing.T) {
 	require.GreaterOrEqual(t, memoSetting.ContentLengthLimit, int32(store.DefaultContentLengthLimit))
 	require.NotEmpty(t, memoSetting.Reactions)
 
-	// Set custom memo related setting
+	// Set custom memo related setting. The limit must be above
+	// DefaultContentLengthLimit to survive the read: that default doubles as a
+	// floor (see GetInstanceMemoRelatedSetting), so a smaller value is raised to it
+	// rather than stored as given.
+	customLengthLimit := int32(store.DefaultContentLengthLimit * 2)
 	customReactions := []string{"👍", "👎", "🚀"}
 	_, err = ts.UpsertInstanceSetting(ctx, &storepb.InstanceSetting{
 		Key: storepb.InstanceSettingKey_MEMO_RELATED,
 		Value: &storepb.InstanceSetting_MemoRelatedSetting{
 			MemoRelatedSetting: &storepb.InstanceMemoRelatedSetting{
-				ContentLengthLimit: 16384,
+				ContentLengthLimit: customLengthLimit,
 				Reactions:          customReactions,
 			},
 		},
@@ -179,8 +183,25 @@ func TestInstanceSettingMemoRelatedSetting(t *testing.T) {
 	// Verify
 	memoSetting, err = ts.GetInstanceMemoRelatedSetting(ctx)
 	require.NoError(t, err)
-	require.Equal(t, int32(16384), memoSetting.ContentLengthLimit)
+	require.Equal(t, customLengthLimit, memoSetting.ContentLengthLimit)
 	require.Equal(t, customReactions, memoSetting.Reactions)
+
+	// A limit below the floor is raised to it, so the instance can never end up
+	// with a content limit smaller than the default.
+	_, err = ts.UpsertInstanceSetting(ctx, &storepb.InstanceSetting{
+		Key: storepb.InstanceSettingKey_MEMO_RELATED,
+		Value: &storepb.InstanceSetting_MemoRelatedSetting{
+			MemoRelatedSetting: &storepb.InstanceMemoRelatedSetting{
+				ContentLengthLimit: store.DefaultContentLengthLimit / 2,
+				Reactions:          customReactions,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	memoSetting, err = ts.GetInstanceMemoRelatedSetting(ctx)
+	require.NoError(t, err)
+	require.Equal(t, int32(store.DefaultContentLengthLimit), memoSetting.ContentLengthLimit)
 
 	ts.Close()
 }

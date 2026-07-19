@@ -1,4 +1,4 @@
-import { Compartment, EditorState } from "@codemirror/state";
+import { Compartment, EditorState, Transaction } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef } from "react";
 import { useTagCounts } from "@/hooks/useUserQueries";
@@ -70,7 +70,13 @@ const Editor = forwardRef(function Editor(props: EditorProps, ref: React.Forward
     const view = viewRef.current;
     if (!view) return;
     if (view.state.doc.toString() === initialContent) return;
-    view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: initialContent } });
+    // External sync (loading/switching a memo). Keep it out of the undo history:
+    // otherwise a later Cmd/Ctrl-Z rewinds past this full-document replace to the
+    // stale external value — e.g. the empty initial mount — wiping the editor.
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: initialContent },
+      annotations: Transaction.addToHistory.of(false),
+    });
   }, [initialContent]);
 
   useEffect(() => {

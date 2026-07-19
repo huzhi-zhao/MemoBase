@@ -5,6 +5,7 @@
 const FENCE_START_RE = /^```calendar\s*$/;
 const FENCE_END_RE = /^```\s*$/;
 const DATE_LINE_RE = /^-\s+(\d{4}-\d{2}-\d{2})\s*$/;
+const EVENT_ITEM_RE = /^-\s+@(.+)$/;
 const ITEM_LINE_RE = /^-\s+(?:\[([ xX])\]\s+)?(.+)$/;
 // Accepts "- [ ] text", "-[] text", "- [x] text", or plain "text" input lines.
 const INPUT_LINE_RE = /^-?\s*\[([ xX]?)\]\s*(.+)$/;
@@ -98,6 +99,71 @@ export function upsertCalendarItem(content: string, date: string, rawInput: stri
     newBlockLines = [`- ${date}`, ...newItemLines, "", ...blockLines];
   }
 
+  return rebuildContent(location, newBlockLines);
+}
+
+/**
+ * 在 `date` 的分组内添加或移除一次 event 打点（`- @name` 行）。
+ * `occurred` 为 true 时确保存在该 event 行，false 时移除它。
+ * 若该日期无分组，会在块顶部新建一个分组。
+ *
+ * 未找到 calendar 块时原样返回。
+ */
+export function toggleCalendarEvent(content: string, date: string, name: string, occurred: boolean): string {
+  const location = locateCalendarFence(content);
+  if (!location) {
+    return content;
+  }
+  const { blockLines } = location;
+
+  let dateLineIndex = -1;
+  for (let i = 0; i < blockLines.length; i++) {
+    const match = DATE_LINE_RE.exec(blockLines[i]);
+    if (match && match[1] === date) {
+      dateLineIndex = i;
+      break;
+    }
+  }
+
+  // 该分组的结束边界（下一个日期行，或块末尾）。
+  let groupEnd = blockLines.length;
+  if (dateLineIndex !== -1) {
+    groupEnd = blockLines.length;
+    for (let i = dateLineIndex + 1; i < blockLines.length; i++) {
+      if (DATE_LINE_RE.test(blockLines[i])) {
+        groupEnd = i;
+        break;
+      }
+    }
+  }
+
+  // 在分组内查找已存在的同名 event 行。
+  let existingIndex = -1;
+  if (dateLineIndex !== -1) {
+    for (let i = dateLineIndex + 1; i < groupEnd; i++) {
+      const match = EVENT_ITEM_RE.exec(blockLines[i]);
+      if (match && match[1].trim() === name) {
+        existingIndex = i;
+        break;
+      }
+    }
+  }
+
+  if (occurred) {
+    if (existingIndex !== -1) return content; // 已存在，无需变更
+    const eventLine = `- @${name}`;
+    let newBlockLines: string[];
+    if (dateLineIndex !== -1) {
+      newBlockLines = [...blockLines.slice(0, dateLineIndex + 1), eventLine, ...blockLines.slice(dateLineIndex + 1)];
+    } else {
+      newBlockLines = [`- ${date}`, eventLine, "", ...blockLines];
+    }
+    return rebuildContent(location, newBlockLines);
+  }
+
+  // occurred === false：移除已存在的 event 行。
+  if (existingIndex === -1) return content;
+  const newBlockLines = [...blockLines.slice(0, existingIndex), ...blockLines.slice(existingIndex + 1)];
   return rebuildContent(location, newBlockLines);
 }
 

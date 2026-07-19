@@ -99,6 +99,9 @@ const Notebook = () => {
   } | null>(null);
 
   const { data: tree = [] } = useWorkspaceTree(workspaceName, archived);
+  // Keep the secondary sidebar visible when the knowledge base has no documents,
+  // otherwise a freshly created (empty) workspace would render a blank page.
+  const effectiveSidebarCollapsed = sidebarCollapsed && tree.length > 0;
   const { data: memo } = useMemoDetail(selectedMemo ?? "", {
     enabled: !!selectedMemo,
   });
@@ -465,7 +468,7 @@ const Notebook = () => {
 
   return (
     <div className="w-full h-svh flex flex-row">
-      {!sidebarCollapsed && (
+      {!effectiveSidebarCollapsed && (
         <div className="w-72 shrink-0 h-full border-r border-border">
           <NotebookSidebar
             workspaces={workspaces}

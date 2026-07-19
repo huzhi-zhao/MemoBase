@@ -4,7 +4,19 @@
 // beyond the built-in fields below is preserved as a custom field and shown in
 // the task detail panel.
 
-export const BUILT_IN_TASK_FIELDS = ["id", "title", "link", "status", "priority", "done", "order", "tags", "due", "createAt", "updateAt"] as const;
+export const BUILT_IN_TASK_FIELDS = [
+  "id",
+  "title",
+  "link",
+  "status",
+  "priority",
+  "done",
+  "order",
+  "tags",
+  "due",
+  "createAt",
+  "updateAt",
+] as const;
 
 // Five fixed priority levels, ordered most → least urgent.
 export const PRIORITY_LEVELS = ["highest", "high", "medium", "low", "lowest"] as const;

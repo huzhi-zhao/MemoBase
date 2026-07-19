@@ -14,6 +14,16 @@ message MemoPayload {
   // Set when this memo is a comment anchored to a location within a PDF attachment.
   PdfAnnotation pdf_annotation = 4;
 
+  // Set when this memo is a comment anchored to a heading within a document memo.
+  DocAnchor doc_anchor = 5;
+
+  // Supplementary per-node data keyed by an in-document node anchor id (e.g. a
+  // `sheets` block's `id:`). The value is an opaque JSON string whose shape is
+  // owned by the node's renderer; the server never parses it. Lets clients
+  // attach overlay info (cell styles, etc.) to any addressable node without
+  // touching that node's raw content.
+  map<string, string> node_overlays = 6;
+
   // The calculated properties from the memo content.
   message Property {
     bool has_link = 1;
@@ -42,5 +52,13 @@ message MemoPayload {
     double height = 6;
     // Optional selected text snippet, used as a fallback anchor if the rect drifts.
     string text_snippet = 7;
+  }
+
+  message DocAnchor {
+    // The slug (DOM id) of the heading this comment is anchored to. Empty means the
+    // comment is anchored to the top of the document (no preceding heading).
+    string heading_slug = 1;
+    // The heading's display text, shown as the comment's anchor label.
+    string heading_text = 2;
   }
 }

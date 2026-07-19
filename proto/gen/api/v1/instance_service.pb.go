@@ -1642,7 +1642,11 @@ type InstanceSetting_EmbeddingConfig struct {
 	// model is the provider-specific embedding model identifier.
 	// OPENAI examples: text-embedding-3-small, text-embedding-3-large.
 	// GEMINI examples: text-embedding-004.
-	Model         string `protobuf:"bytes,2,opt,name=model,proto3" json:"model,omitempty"`
+	Model string `protobuf:"bytes,2,opt,name=model,proto3" json:"model,omitempty"`
+	// disabled turns off vector building and semantic retrieval while keeping the
+	// provider/model selection above. Keyword (FTS) search is unaffected; re-enabling
+	// triggers a full backfill of the missing vectors.
+	Disabled      bool `protobuf:"varint,3,opt,name=disabled,proto3" json:"disabled,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1689,6 +1693,13 @@ func (x *InstanceSetting_EmbeddingConfig) GetModel() string {
 		return x.Model
 	}
 	return ""
+}
+
+func (x *InstanceSetting_EmbeddingConfig) GetDisabled() bool {
+	if x != nil {
+		return x.Disabled
+	}
+	return false
 }
 
 // BackupSetting configures and reports the status of the weekly/manual SQLite-to-S3 database
@@ -2355,7 +2366,7 @@ const file_api_v1_instance_service_proto_rawDesc = "" +
 	"\x06commit\x18\b \x01(\tR\x06commit\x12\x1f\n" +
 	"\vneeds_setup\x18\t \x01(\bR\n" +
 	"needsSetup\"\x1b\n" +
-	"\x19GetInstanceProfileRequest\"\xaa!\n" +
+	"\x19GetInstanceProfileRequest\"\xc6!\n" +
 	"\x0fInstanceSetting\x12\x17\n" +
 	"\x04name\x18\x01 \x01(\tB\x03\xe0A\bR\x04name\x12W\n" +
 	"\x0fgeneral_setting\x18\x02 \x01(\v2,.memos.api.v1.InstanceSetting.GeneralSettingH\x00R\x0egeneralSetting\x12W\n" +
@@ -2429,11 +2440,12 @@ const file_api_v1_instance_service_proto_rawDesc = "" +
 	"\rtranscription\x18\x02 \x01(\v21.memos.api.v1.InstanceSetting.TranscriptionConfigR\rtranscription\x12.\n" +
 	"\x13default_provider_id\x18\x03 \x01(\tR\x11defaultProviderId\x12&\n" +
 	"\x0fformat_pdf_text\x18\x04 \x01(\bR\rformatPdfText\x12K\n" +
-	"\tembedding\x18\x05 \x01(\v2-.memos.api.v1.InstanceSetting.EmbeddingConfigR\tembedding\x1aH\n" +
+	"\tembedding\x18\x05 \x01(\v2-.memos.api.v1.InstanceSetting.EmbeddingConfigR\tembedding\x1ad\n" +
 	"\x0fEmbeddingConfig\x12\x1f\n" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
 	"providerId\x12\x14\n" +
-	"\x05model\x18\x02 \x01(\tR\x05model\x1a\xd6\x01\n" +
+	"\x05model\x18\x02 \x01(\tR\x05model\x12\x1a\n" +
+	"\bdisabled\x18\x03 \x01(\bR\bdisabled\x1a\xd6\x01\n" +
 	"\rBackupSetting\x12#\n" +
 	"\rpath_template\x18\x04 \x01(\tR\fpathTemplate\x12D\n" +
 	"\x10last_backup_time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x0elastBackupTime\x12.\n" +

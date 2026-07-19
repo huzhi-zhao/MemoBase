@@ -228,6 +228,7 @@
     "code": "程式碼",
     "comment": {
       "self": "評論",
+      "empty": "還沒有評論。",
       "write-a-comment": "寫下評論"
     },
     "copy-content": "複製內容",

@@ -232,6 +232,7 @@
   "markdown": {
     "calendar-block": {
       "empty": "空的 calendar 代码块",
+      "events": "事件",
       "no-records": "{{date}} 当天无记录",
       "ungrouped": "未分组"
     },
@@ -264,6 +265,7 @@
     "code": "代码",
     "comment": {
       "self": "评论",
+      "empty": "还没有评论。",
       "write-a-comment": "写评论"
     },
     "copy-content": "复制内容",
@@ -498,6 +500,8 @@
       "embedding-description": "配置文本向量（embedding）模型以启用语义搜索。未配置时，搜索自动降级为纯关键词检索。",
       "embedding-empty-providers": "请先添加 AI 集成以启用语义搜索。",
       "embedding-model-help": "向量模型 ID（如 text-embedding-3-small、text-embedding-004）。更换模型将在后台重建索引。",
+      "embedding-enabled": "构建向量",
+      "embedding-enabled-help": "关闭后不再调用向量 API，语义搜索降级为关键词搜索；关键词搜索不受影响。重新开启会在后台补建缺失的向量。",
       "test-connection": "测试连接",
       "testing": "测试中…",
       "test-model-required": "请先填写模型再测试连接。",

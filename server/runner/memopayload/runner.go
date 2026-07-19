@@ -56,6 +56,10 @@ func (r *Runner) RunOnce(ctx context.Context) {
 			if err := r.Store.UpdateMemo(ctx, &store.UpdateMemo{
 				ID:      memo.ID,
 				Payload: memo.Payload,
+				// Payload holds derived tags/properties; the search index is built from
+				// Title + Content, so this rebuild must not re-queue every memo for
+				// indexing on each startup (that re-embeds the whole corpus).
+				SkipReindex: true,
 			}); err != nil {
 				slog.Error("failed to update memo", "err", err, "memoID", memo.ID)
 				continue

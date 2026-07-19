@@ -64,6 +64,7 @@ type LocalTranscription = {
 type LocalEmbedding = {
   providerId: string;
   model: string;
+  disabled: boolean;
 };
 
 const providerTypeOptions = [InstanceSetting_AIProviderType.OPENAI, InstanceSetting_AIProviderType.GEMINI];
@@ -107,12 +108,14 @@ const toLocalTranscription = (config: InstanceSetting_TranscriptionConfig | unde
 const toLocalEmbedding = (config: InstanceSetting_EmbeddingConfig | undefined): LocalEmbedding => ({
   providerId: config?.providerId ?? "",
   model: config?.model ?? "",
+  disabled: config?.disabled ?? false,
 });
 
 const toEmbeddingConfig = (embedding: LocalEmbedding) =>
   create(InstanceSetting_EmbeddingConfigSchema, {
     providerId: embedding.providerId,
     model: embedding.model.trim(),
+    disabled: embedding.disabled,
   });
 
 const newProvider = (): LocalAIProvider => ({
@@ -544,6 +547,17 @@ const AISection = () => {
               maxLength={256}
             />
             <p className="text-xs text-muted-foreground">{t("setting.ai.embedding-model-help")}</p>
+          </div>
+          <div className="sm:col-span-2 flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-0.5">
+              <Label>{t("setting.ai.embedding-enabled")}</Label>
+              <p className="text-xs text-muted-foreground">{t("setting.ai.embedding-enabled-help")}</p>
+            </div>
+            <Switch
+              checked={!embedding.disabled}
+              onCheckedChange={(checked) => setEmbedding((prev) => ({ ...prev, disabled: !checked }))}
+              disabled={!embedding.providerId}
+            />
           </div>
         </div>
       </SettingGroup>

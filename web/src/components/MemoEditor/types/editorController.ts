@@ -18,6 +18,15 @@ export interface EditorController {
   insertMarkdown(markdown: string): void;
   /** Replace the first occurrence of `search` in the document with `replacement`, if present. */
   replaceText(search: string, replacement: string): void;
+  /** Current primary selection: its offsets, selected text, and whether it is empty (caret only). */
+  getSelection(): { from: number; to: number; text: string; empty: boolean };
+  /**
+   * Viewport-relative bounding box of the current selection, or null when the
+   * selection is empty or off-screen. Used to anchor a floating selection toolbar.
+   */
+  getSelectionCoords(): { left: number; right: number; top: number; bottom: number } | null;
+  /** Replace the current selection with `replacement` and place the caret after it. */
+  replaceSelection(replacement: string): void;
   scrollToCursor(): void;
   /** Move the cursor to the start of a 1-indexed line and scroll it into view (e.g. outline navigation). */
   scrollToLine(line: number): void;

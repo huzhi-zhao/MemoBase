@@ -8,6 +8,7 @@ import {
   FolderInputIcon,
   HistoryIcon,
   LinkIcon,
+  MessageCircleIcon,
   PanelRightCloseIcon,
   PanelRightOpenIcon,
   PaperclipIcon,
@@ -17,6 +18,8 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "react-hot-toast";
+import { DocCommentSidebar } from "@/components/DocComments/DocCommentSidebar";
+import { nearestHeadingAnchor, nearestHeadingAnchorForNode, scrollToHeading } from "@/components/DocComments/docAnchor";
 import GalleryViewForm from "@/components/GalleryView/GalleryViewForm";
 import GalleryViewRenderer from "@/components/GalleryView/GalleryViewRenderer";
 import CreateVersionDialog from "@/components/MemoActionMenu/CreateVersionDialog";
@@ -41,9 +44,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useInstance } from "@/contexts/InstanceContext";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import { useCreateMemoHistory, useMemoHistories, useRestoreMemoHistory } from "@/hooks/useMemoHistoryQueries";
+import { useInfiniteMemoComments } from "@/hooks/useMemoQueries";
 import { cn } from "@/lib/utils";
 import { State } from "@/types/proto/api/v1/common_pb";
-import { type Memo, Memo_DocType, type MemoHistory } from "@/types/proto/api/v1/memo_service_pb";
+import { type DocAnchor, type Memo, Memo_DocType, type MemoHistory } from "@/types/proto/api/v1/memo_service_pb";
 import { getAttachmentUrl, partitionInlinedAttachments } from "@/utils/attachment";
 import { parseFrontmatter } from "@/utils/frontmatter";
 import { useTranslate } from "@/utils/i18n";
@@ -104,6 +108,25 @@ const DocumentView = ({
   const isView = memo.docType === Memo_DocType.VIEW;
   const pdfAttachment = isPdf ? memo.attachments.find((a) => a.type === "application/pdf") : undefined;
   const remainingAttachments = partitionInlinedAttachments(memo.attachments, memo.content).rest;
+  // Comments are available for markdown/view docs (PDF has its own annotation sidebar; HTML is skipped).
+  const supportsComments = !isPdf && !isHtml;
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  // Floating "comment on selection" button: positioned at the current text selection in the
+  // preview, carrying the heading anchor computed from where the selection starts.
+  const [selectionPopover, setSelectionPopover] = useState<{ top: number; left: number; anchor: DocAnchor }>();
+  // A bump-to-open request handed to the comment sidebar to start composing pre-anchored.
+  const [composeRequest, setComposeRequest] = useState<{ anchor: DocAnchor; nonce: number }>();
+  const {
+    data: comments = [],
+    hasNextPage: hasMoreComments,
+    fetchNextPage: fetchMoreComments,
+    isFetchingNextPage: isFetchingMoreComments,
+    refetch: refetchComments,
+  } = useInfiniteMemoComments(memo.name, { enabled: supportsComments });
+  // Pull in every page so the panel's count and list are complete, not capped at the first page.
+  useEffect(() => {
+    if (hasMoreComments && !isFetchingMoreComments) fetchMoreComments();
+  }, [hasMoreComments, isFetchingMoreComments, fetchMoreComments]);
   const [mode, setMode] = useState<"preview" | "edit">("preview");
   const [outlineCollapsed, setOutlineCollapsed] = useState(() => {
     const displayOutline = parseFrontmatter(memo.content).properties.find((p) => p.key === "displayOutline")?.value;
@@ -169,6 +192,8 @@ const DocumentView = ({
   // a freshly created view doc, which has no config yet and opens its form.
   useEffect(() => {
     setMode(isView && !memo.content.trim() ? "edit" : "preview");
+    setCommentsOpen(false);
+    setSelectionPopover(undefined);
     setHtmlDraft(memo.content);
     setTitleDraft(memo.title);
     setEditDraftContent(null);
@@ -221,12 +246,52 @@ const DocumentView = ({
   }, [mode, scrollCacheKey]);
 
   const handlePreviewScroll = () => {
+    // The selection popover is positioned in viewport coordinates, so it goes stale the moment
+    // the preview scrolls — drop it rather than let it drift away from the selection.
+    if (selectionPopover) setSelectionPopover(undefined);
     if (mode !== "preview" || !scrollCacheKey) return;
     const el = previewRef.current;
     if (!el) return;
     const scrollTop = el.scrollTop;
     clearTimeout(saveScrollTimeoutRef.current);
     saveScrollTimeoutRef.current = setTimeout(() => saveDocScrollPosition(scrollCacheKey, { scrollTop }), 300);
+  };
+
+  // On mouse-up in the preview, if the user has selected some text, capture the selection's
+  // start node *now* (before a click elsewhere clears it), resolve the nearest heading above it,
+  // and show a floating "comment on selection" button anchored to the selection's rect.
+  const handlePreviewMouseUp = () => {
+    // Selection-to-comment is only offered while the comment panel is open.
+    if (!supportsComments || mode !== "preview" || !commentsOpen) return;
+    const container = previewRef.current;
+    const selection = window.getSelection();
+    if (!container || !selection || selection.isCollapsed || !selection.rangeCount || !selection.toString().trim()) {
+      setSelectionPopover(undefined);
+      return;
+    }
+    const range = selection.getRangeAt(0);
+    if (!container.contains(range.commonAncestorContainer)) {
+      setSelectionPopover(undefined);
+      return;
+    }
+    const rect = range.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) {
+      setSelectionPopover(undefined);
+      return;
+    }
+    const anchor = nearestHeadingAnchorForNode(container, range.startContainer);
+    setSelectionPopover({ top: rect.top - 8, left: rect.left + rect.width / 2, anchor });
+  };
+
+  // Fired from the floating button: open the comments panel and start composing, pre-anchored
+  // to the selection's section. The selection may clear as focus moves — the anchor is already
+  // captured, so that's fine.
+  const composeFromSelection = () => {
+    if (!selectionPopover) return;
+    setOutlineCollapsed(true);
+    setCommentsOpen(true);
+    setComposeRequest({ anchor: selectionPopover.anchor, nonce: Date.now() });
+    setSelectionPopover(undefined);
   };
 
   // Restore the cached scroll position (markdown preview, or continuous-scroll PDF mode)
@@ -278,11 +343,38 @@ const DocumentView = ({
             </Button>
           )}
           {!isHtml && !isPdf && !isView && (
-            <Button variant="ghost" size="icon" onClick={() => setOutlineCollapsed((v) => !v)} title={t("notebook.toggle-outline")}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                const next = !outlineCollapsed;
+                setOutlineCollapsed(next);
+                // Outline and comments share the right dock — opening one closes the other.
+                if (!next) setCommentsOpen(false);
+              }}
+              title={t("notebook.toggle-outline")}
+            >
               {outlineCollapsed ? <PanelRightOpenIcon className="w-4 h-4" /> : <PanelRightCloseIcon className="w-4 h-4" />}
             </Button>
           )}
           {isPdf && <div ref={setPdfToolbarSlot} className="flex items-center" />}
+          {supportsComments && (
+            <Button
+              variant={commentsOpen ? "secondary" : "ghost"}
+              size="icon"
+              onClick={() => {
+                const next = !commentsOpen;
+                setCommentsOpen(next);
+                // Outline and comments share the right dock — opening one closes the other.
+                if (next) setOutlineCollapsed(true);
+                // Closing the panel also disables selection-to-comment, so drop any stale popover.
+                else setSelectionPopover(undefined);
+              }}
+              title={t("memo.comment.self")}
+            >
+              <MessageCircleIcon className="w-4 h-4" />
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon">
@@ -374,6 +466,7 @@ const DocumentView = ({
           className={cn("flex-1 min-w-0", mode === "edit" ? "overflow-hidden" : "overflow-y-auto")}
           ref={previewRef}
           onScroll={handlePreviewScroll}
+          onMouseUp={handlePreviewMouseUp}
         >
           {isPdf ? (
             pdfAttachment &&
@@ -460,7 +553,7 @@ const DocumentView = ({
             </div>
           )}
         </div>
-        {!isHtml && !isPdf && !isView && !outlineCollapsed && isDesktop && (
+        {!isHtml && !isPdf && !isView && !outlineCollapsed && !commentsOpen && isDesktop && (
           <div className="w-56 shrink-0 min-h-0 border-l border-border flex flex-col px-2 py-3">
             <div className="text-xs font-medium text-muted-foreground px-2 pb-2 uppercase tracking-wide">{t("notebook.outline")}</div>
             <DocumentOutline
@@ -472,7 +565,44 @@ const DocumentView = ({
             />
           </div>
         )}
+        {supportsComments && commentsOpen && isDesktop && (
+          <div className="w-72 shrink-0 min-h-0 border-l border-border">
+            <DocCommentSidebar
+              parentMemoName={memo.name}
+              comments={comments}
+              onClose={() => setCommentsOpen(false)}
+              onChanged={refetchComments}
+              getAnchor={() => nearestHeadingAnchor(previewRef.current)}
+              onJump={(slug) => scrollToHeading(previewRef.current, slug)}
+              composeRequest={composeRequest}
+            />
+          </div>
+        )}
       </div>
+
+      {supportsComments && commentsOpen && !isDesktop && (
+        <Sheet open onOpenChange={(open) => !open && setCommentsOpen(false)}>
+          <SheetContent side="right" className="w-[85%] max-w-full overflow-y-auto px-0 py-0 bg-background">
+            <SheetHeader className="px-4 pt-4">
+              <SheetTitle>{t("memo.comment.self")}</SheetTitle>
+            </SheetHeader>
+            <div className="h-[calc(100%-3.5rem)]">
+              <DocCommentSidebar
+                parentMemoName={memo.name}
+                comments={comments}
+                onChanged={refetchComments}
+                getAnchor={() => nearestHeadingAnchor(previewRef.current)}
+                onJump={(slug) => {
+                  setCommentsOpen(false);
+                  scrollToHeading(previewRef.current, slug);
+                }}
+                composeRequest={composeRequest}
+                className="border-l-0 border-t-0"
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
 
       {!isHtml && !isPdf && !isView && !isDesktop && (
         <Sheet open={!outlineCollapsed} onOpenChange={(open) => setOutlineCollapsed(!open)}>
@@ -489,6 +619,23 @@ const DocumentView = ({
             />
           </SheetContent>
         </Sheet>
+      )}
+
+      {selectionPopover && commentsOpen && (
+        <button
+          type="button"
+          style={{ position: "fixed", top: selectionPopover.top, left: selectionPopover.left, transform: "translate(-50%, -100%)" }}
+          className="z-50 flex items-center gap-1 rounded-full border border-border bg-popover px-2.5 py-1 text-xs font-medium text-foreground shadow-md hover:bg-accent"
+          // Fire before the click so the selection is still alive when we read it; also stop the
+          // mousedown from clearing the selection before onClick runs.
+          onMouseDown={(e) => {
+            e.preventDefault();
+            composeFromSelection();
+          }}
+        >
+          <MessageCircleIcon className="w-3.5 h-3.5" />
+          {t("memo.comment.write-a-comment")}
+        </button>
       )}
     </div>
   );

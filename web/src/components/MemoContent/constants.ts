@@ -68,7 +68,13 @@ export const SANITIZE_SCHEMA = {
     ...defaultSchema.attributes,
     img: [...(defaultSchema.attributes?.img || []), "height", "width"],
     input: INPUT_ATTRIBUTES,
-    code: [...(defaultSchema.attributes?.code || []), ["className", ...KATEX_INLINE_CLASS_NAMES, ...KATEX_BLOCK_CLASS_NAMES]],
+    // `data-sheet-id` carries a sheets block's style-overlay anchor from the fence
+    // info string (```sheets id=xxx) through to CodeBlock; see remark-sheets-id.
+    code: [
+      ...(defaultSchema.attributes?.code || []),
+      ["className", ...KATEX_INLINE_CLASS_NAMES, ...KATEX_BLOCK_CLASS_NAMES],
+      "dataSheetId",
+    ],
     span: [...(defaultSchema.attributes?.span || []), ["className", ...SPAN_CLASS_NAMES], ["aria*"], ["data*"]],
     mark: [["className", ...MARK_CLASS_NAMES]],
     blockquote: [...(defaultSchema.attributes?.blockquote || []), ["data*"]],

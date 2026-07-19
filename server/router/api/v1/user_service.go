@@ -1455,6 +1455,8 @@ func ragStoreModeToString(mode storepb.RagSearchMode) string {
 		return "KEYWORD"
 	case storepb.RagSearchMode_SEMANTIC:
 		return "SEMANTIC"
+	case storepb.RagSearchMode_LIKE:
+		return "LIKE"
 	default:
 		return "MIXED"
 	}
@@ -1466,6 +1468,8 @@ func ragStringToStoreMode(mode string) storepb.RagSearchMode {
 		return storepb.RagSearchMode_KEYWORD
 	case "SEMANTIC":
 		return storepb.RagSearchMode_SEMANTIC
+	case "LIKE":
+		return storepb.RagSearchMode_LIKE
 	default:
 		return storepb.RagSearchMode_MIXED
 	}

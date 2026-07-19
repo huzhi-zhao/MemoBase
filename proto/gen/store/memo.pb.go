@@ -28,6 +28,14 @@ type MemoPayload struct {
 	Tags     []string               `protobuf:"bytes,3,rep,name=tags,proto3" json:"tags,omitempty"`
 	// Set when this memo is a comment anchored to a location within a PDF attachment.
 	PdfAnnotation *MemoPayload_PdfAnnotation `protobuf:"bytes,4,opt,name=pdf_annotation,json=pdfAnnotation,proto3" json:"pdf_annotation,omitempty"`
+	// Set when this memo is a comment anchored to a heading within a document memo.
+	DocAnchor *MemoPayload_DocAnchor `protobuf:"bytes,5,opt,name=doc_anchor,json=docAnchor,proto3" json:"doc_anchor,omitempty"`
+	// Supplementary per-node data keyed by an in-document node anchor id (e.g. a
+	// `sheets` block's `id:`). The value is an opaque JSON string whose shape is
+	// owned by the node's renderer; the server never parses it. Lets clients
+	// attach overlay info (cell styles, etc.) to any addressable node without
+	// touching that node's raw content.
+	NodeOverlays  map[string]string `protobuf:"bytes,6,rep,name=node_overlays,json=nodeOverlays,proto3" json:"node_overlays,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -90,6 +98,20 @@ func (x *MemoPayload) GetPdfAnnotation() *MemoPayload_PdfAnnotation {
 	return nil
 }
 
+func (x *MemoPayload) GetDocAnchor() *MemoPayload_DocAnchor {
+	if x != nil {
+		return x.DocAnchor
+	}
+	return nil
+}
+
+func (x *MemoPayload) GetNodeOverlays() map[string]string {
+	if x != nil {
+		return x.NodeOverlays
+	}
+	return nil
+}
+
 // The calculated properties from the memo content.
 type MemoPayload_Property struct {
 	state              protoimpl.MessageState `protogen:"open.v1"`
@@ -105,7 +127,7 @@ type MemoPayload_Property struct {
 
 func (x *MemoPayload_Property) Reset() {
 	*x = MemoPayload_Property{}
-	mi := &file_store_memo_proto_msgTypes[1]
+	mi := &file_store_memo_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -117,7 +139,7 @@ func (x *MemoPayload_Property) String() string {
 func (*MemoPayload_Property) ProtoMessage() {}
 
 func (x *MemoPayload_Property) ProtoReflect() protoreflect.Message {
-	mi := &file_store_memo_proto_msgTypes[1]
+	mi := &file_store_memo_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -130,7 +152,7 @@ func (x *MemoPayload_Property) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemoPayload_Property.ProtoReflect.Descriptor instead.
 func (*MemoPayload_Property) Descriptor() ([]byte, []int) {
-	return file_store_memo_proto_rawDescGZIP(), []int{0, 0}
+	return file_store_memo_proto_rawDescGZIP(), []int{0, 1}
 }
 
 func (x *MemoPayload_Property) GetHasLink() bool {
@@ -179,7 +201,7 @@ type MemoPayload_Location struct {
 
 func (x *MemoPayload_Location) Reset() {
 	*x = MemoPayload_Location{}
-	mi := &file_store_memo_proto_msgTypes[2]
+	mi := &file_store_memo_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -191,7 +213,7 @@ func (x *MemoPayload_Location) String() string {
 func (*MemoPayload_Location) ProtoMessage() {}
 
 func (x *MemoPayload_Location) ProtoReflect() protoreflect.Message {
-	mi := &file_store_memo_proto_msgTypes[2]
+	mi := &file_store_memo_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -204,7 +226,7 @@ func (x *MemoPayload_Location) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemoPayload_Location.ProtoReflect.Descriptor instead.
 func (*MemoPayload_Location) Descriptor() ([]byte, []int) {
-	return file_store_memo_proto_rawDescGZIP(), []int{0, 1}
+	return file_store_memo_proto_rawDescGZIP(), []int{0, 2}
 }
 
 func (x *MemoPayload_Location) GetPlaceholder() string {
@@ -247,7 +269,7 @@ type MemoPayload_PdfAnnotation struct {
 
 func (x *MemoPayload_PdfAnnotation) Reset() {
 	*x = MemoPayload_PdfAnnotation{}
-	mi := &file_store_memo_proto_msgTypes[3]
+	mi := &file_store_memo_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -259,7 +281,7 @@ func (x *MemoPayload_PdfAnnotation) String() string {
 func (*MemoPayload_PdfAnnotation) ProtoMessage() {}
 
 func (x *MemoPayload_PdfAnnotation) ProtoReflect() protoreflect.Message {
-	mi := &file_store_memo_proto_msgTypes[3]
+	mi := &file_store_memo_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -272,7 +294,7 @@ func (x *MemoPayload_PdfAnnotation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemoPayload_PdfAnnotation.ProtoReflect.Descriptor instead.
 func (*MemoPayload_PdfAnnotation) Descriptor() ([]byte, []int) {
-	return file_store_memo_proto_rawDescGZIP(), []int{0, 2}
+	return file_store_memo_proto_rawDescGZIP(), []int{0, 3}
 }
 
 func (x *MemoPayload_PdfAnnotation) GetAttachmentName() string {
@@ -324,16 +346,77 @@ func (x *MemoPayload_PdfAnnotation) GetTextSnippet() string {
 	return ""
 }
 
+type MemoPayload_DocAnchor struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The slug (DOM id) of the heading this comment is anchored to. Empty means the
+	// comment is anchored to the top of the document (no preceding heading).
+	HeadingSlug string `protobuf:"bytes,1,opt,name=heading_slug,json=headingSlug,proto3" json:"heading_slug,omitempty"`
+	// The heading's display text, shown as the comment's anchor label.
+	HeadingText   string `protobuf:"bytes,2,opt,name=heading_text,json=headingText,proto3" json:"heading_text,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MemoPayload_DocAnchor) Reset() {
+	*x = MemoPayload_DocAnchor{}
+	mi := &file_store_memo_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MemoPayload_DocAnchor) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MemoPayload_DocAnchor) ProtoMessage() {}
+
+func (x *MemoPayload_DocAnchor) ProtoReflect() protoreflect.Message {
+	mi := &file_store_memo_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MemoPayload_DocAnchor.ProtoReflect.Descriptor instead.
+func (*MemoPayload_DocAnchor) Descriptor() ([]byte, []int) {
+	return file_store_memo_proto_rawDescGZIP(), []int{0, 4}
+}
+
+func (x *MemoPayload_DocAnchor) GetHeadingSlug() string {
+	if x != nil {
+		return x.HeadingSlug
+	}
+	return ""
+}
+
+func (x *MemoPayload_DocAnchor) GetHeadingText() string {
+	if x != nil {
+		return x.HeadingText
+	}
+	return ""
+}
+
 var File_store_memo_proto protoreflect.FileDescriptor
 
 const file_store_memo_proto_rawDesc = "" +
 	"\n" +
-	"\x10store/memo.proto\x12\vmemos.store\"\xc1\x05\n" +
+	"\x10store/memo.proto\x12\vmemos.store\"\xe9\a\n" +
 	"\vMemoPayload\x12=\n" +
 	"\bproperty\x18\x01 \x01(\v2!.memos.store.MemoPayload.PropertyR\bproperty\x12=\n" +
 	"\blocation\x18\x02 \x01(\v2!.memos.store.MemoPayload.LocationR\blocation\x12\x12\n" +
 	"\x04tags\x18\x03 \x03(\tR\x04tags\x12M\n" +
-	"\x0epdf_annotation\x18\x04 \x01(\v2&.memos.store.MemoPayload.PdfAnnotationR\rpdfAnnotation\x1a\xac\x01\n" +
+	"\x0epdf_annotation\x18\x04 \x01(\v2&.memos.store.MemoPayload.PdfAnnotationR\rpdfAnnotation\x12A\n" +
+	"\n" +
+	"doc_anchor\x18\x05 \x01(\v2\".memos.store.MemoPayload.DocAnchorR\tdocAnchor\x12O\n" +
+	"\rnode_overlays\x18\x06 \x03(\v2*.memos.store.MemoPayload.NodeOverlaysEntryR\fnodeOverlays\x1a?\n" +
+	"\x11NodeOverlaysEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a\xac\x01\n" +
 	"\bProperty\x12\x19\n" +
 	"\bhas_link\x18\x01 \x01(\bR\ahasLink\x12\"\n" +
 	"\rhas_task_list\x18\x02 \x01(\bR\vhasTaskList\x12\x19\n" +
@@ -351,7 +434,10 @@ const file_store_memo_proto_rawDesc = "" +
 	"\x01y\x18\x04 \x01(\x01R\x01y\x12\x14\n" +
 	"\x05width\x18\x05 \x01(\x01R\x05width\x12\x16\n" +
 	"\x06height\x18\x06 \x01(\x01R\x06height\x12!\n" +
-	"\ftext_snippet\x18\a \x01(\tR\vtextSnippetB\x94\x01\n" +
+	"\ftext_snippet\x18\a \x01(\tR\vtextSnippet\x1aQ\n" +
+	"\tDocAnchor\x12!\n" +
+	"\fheading_slug\x18\x01 \x01(\tR\vheadingSlug\x12!\n" +
+	"\fheading_text\x18\x02 \x01(\tR\vheadingTextB\x94\x01\n" +
 	"\x0fcom.memos.storeB\tMemoProtoP\x01Z)github.com/usememos/memos/proto/gen/store\xa2\x02\x03MSX\xaa\x02\vMemos.Store\xca\x02\vMemos\\Store\xe2\x02\x17Memos\\Store\\GPBMetadata\xea\x02\fMemos::Storeb\x06proto3"
 
 var (
@@ -366,22 +452,26 @@ func file_store_memo_proto_rawDescGZIP() []byte {
 	return file_store_memo_proto_rawDescData
 }
 
-var file_store_memo_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_store_memo_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_store_memo_proto_goTypes = []any{
 	(*MemoPayload)(nil),               // 0: memos.store.MemoPayload
-	(*MemoPayload_Property)(nil),      // 1: memos.store.MemoPayload.Property
-	(*MemoPayload_Location)(nil),      // 2: memos.store.MemoPayload.Location
-	(*MemoPayload_PdfAnnotation)(nil), // 3: memos.store.MemoPayload.PdfAnnotation
+	nil,                               // 1: memos.store.MemoPayload.NodeOverlaysEntry
+	(*MemoPayload_Property)(nil),      // 2: memos.store.MemoPayload.Property
+	(*MemoPayload_Location)(nil),      // 3: memos.store.MemoPayload.Location
+	(*MemoPayload_PdfAnnotation)(nil), // 4: memos.store.MemoPayload.PdfAnnotation
+	(*MemoPayload_DocAnchor)(nil),     // 5: memos.store.MemoPayload.DocAnchor
 }
 var file_store_memo_proto_depIdxs = []int32{
-	1, // 0: memos.store.MemoPayload.property:type_name -> memos.store.MemoPayload.Property
-	2, // 1: memos.store.MemoPayload.location:type_name -> memos.store.MemoPayload.Location
-	3, // 2: memos.store.MemoPayload.pdf_annotation:type_name -> memos.store.MemoPayload.PdfAnnotation
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	2, // 0: memos.store.MemoPayload.property:type_name -> memos.store.MemoPayload.Property
+	3, // 1: memos.store.MemoPayload.location:type_name -> memos.store.MemoPayload.Location
+	4, // 2: memos.store.MemoPayload.pdf_annotation:type_name -> memos.store.MemoPayload.PdfAnnotation
+	5, // 3: memos.store.MemoPayload.doc_anchor:type_name -> memos.store.MemoPayload.DocAnchor
+	1, // 4: memos.store.MemoPayload.node_overlays:type_name -> memos.store.MemoPayload.NodeOverlaysEntry
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_store_memo_proto_init() }
@@ -395,7 +485,7 @@ func file_store_memo_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_store_memo_proto_rawDesc), len(file_store_memo_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

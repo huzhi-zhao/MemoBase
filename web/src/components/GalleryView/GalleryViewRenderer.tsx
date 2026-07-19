@@ -151,6 +151,8 @@ const GalleryCardBadge = ({ badge }: { badge: GalleryBadgeRule }) => {
 
 interface BlockProps {
   block: GalleryBlock;
+  /** Index of this block within the view, used to keep heading ids unique across blocks. */
+  blockIndex: number;
   memo: Memo;
   openDoc: (memoName: string) => void;
 }
@@ -158,7 +160,7 @@ interface BlockProps {
 // Renders one gallery block: optional markdown intro (existing markdown
 // pipeline, including sanitization), then a card wall built by querying the
 // block's scope live — nothing is generated or cached.
-const GalleryBlockView = ({ block, memo, openDoc }: BlockProps) => {
+const GalleryBlockView = ({ block, blockIndex, memo, openDoc }: BlockProps) => {
   const t = useTranslate();
   const { data, isLoading } = useMemos({ pageSize: 1000, state: State.NORMAL, filter: `workspace == ${JSON.stringify(memo.workspace)}` });
 
@@ -172,7 +174,7 @@ const GalleryBlockView = ({ block, memo, openDoc }: BlockProps) => {
 
   return (
     <div className="w-full flex flex-col gap-4">
-      {block.description && <MemoContent content={block.description} memoName={memo.name} />}
+      {block.description && <MemoContent content={block.description} memoName={memo.name} headingIdPrefix={`vb${blockIndex}-desc`} />}
       {isLoading ? (
         <div className="text-sm text-muted-foreground">{t("gallery.loading")}</div>
       ) : docs.length === 0 ? (
@@ -215,7 +217,7 @@ const GalleryBlockView = ({ block, memo, openDoc }: BlockProps) => {
           })}
         </div>
       )}
-      {block.footer && <MemoContent content={block.footer} memoName={memo.name} />}
+      {block.footer && <MemoContent content={block.footer} memoName={memo.name} headingIdPrefix={`vb${blockIndex}-foot`} />}
     </div>
   );
 };
@@ -240,7 +242,7 @@ const GalleryViewRenderer = ({ memo, onOpenDoc, className }: Props) => {
       {config.blocks.map((block, index) => (
         <div key={index} className="flex flex-col gap-6">
           {index > 0 && <hr className="border-border" />}
-          <GalleryBlockView block={block} memo={memo} openDoc={openDoc} />
+          <GalleryBlockView block={block} blockIndex={index} memo={memo} openDoc={openDoc} />
         </div>
       ))}
     </div>

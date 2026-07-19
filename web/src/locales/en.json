@@ -178,6 +178,21 @@
     "exit-focus-mode": "Exit Focus Mode",
     "focus-mode": "Focus Mode",
     "formatting-toolbar": "Formatting toolbar",
+    "polish": {
+      "trigger": "AI",
+      "title": "Rewrite with AI",
+      "custom-placeholder": "Describe how to rewrite it…",
+      "run": "Rewrite",
+      "loading": "Rewriting…",
+      "error": "Rewrite failed",
+      "preset": {
+        "polish": "Polish",
+        "concise": "Make concise",
+        "expand": "Expand",
+        "grammar": "Fix grammar",
+        "tone": "Adjust tone"
+      }
+    },
     "format": {
       "heading": "Heading",
       "paragraph": "Paragraph",
@@ -280,6 +295,7 @@
   "markdown": {
     "calendar-block": {
       "empty": "Empty calendar code block",
+      "events": "Events",
       "no-records": "No records for {{date}}",
       "ungrouped": "Ungrouped"
     },
@@ -288,6 +304,19 @@
     "content-syntax": "Content syntax",
     "grid-block": {
       "empty": "Empty grid code block"
+    },
+    "sheets-block": {
+      "comment": "Comment",
+      "comment-placeholder": "Add a note for this cell (empty to remove)",
+      "more": "More",
+      "empty": "Empty sheets code block",
+      "ai-formula": "AI formula",
+      "ai-placeholder": "Describe the formula, e.g. sum the price column",
+      "ai-generate": "Generate",
+      "ai-generating": "Generating…",
+      "ai-unsupported": "The generated formula uses {{fn}}, which isn't supported. Try rephrasing (only SUM, AVERAGE, MAX, MIN, PRODUCT, IF and basic arithmetic work).",
+      "resize": "Drag to resize",
+      "render-error": "This sheet couldn't be rendered (likely an invalid formula). Edit the block to fix it; the raw content is shown below."
     },
     "kanban-block": {
       "empty": "Empty kanban code block",
@@ -315,6 +344,7 @@
     "code": "Code",
     "comment": {
       "self": "Comments",
+      "empty": "No comments yet.",
       "write-a-comment": "Write a comment"
     },
     "copy-content": "Copy Content",
@@ -569,6 +599,8 @@
       "embedding-description": "Configure a text-embedding model to enable semantic (vector) search. When unset, search falls back to keyword-only.",
       "embedding-empty-providers": "Add an AI integration first to enable semantic search.",
       "embedding-model-help": "Embedding model ID (e.g. text-embedding-3-small, text-embedding-004). Changing it rebuilds the index in the background.",
+      "embedding-enabled": "Build embeddings",
+      "embedding-enabled-help": "When off, no embedding API is called and semantic search falls back to keyword. Keyword search keeps working. Turning it back on rebuilds the missing vectors in the background.",
       "embedding-model": "Embedding model",
       "embedding-no-provider": "Disabled (keyword-only search)",
       "embedding-provider": "Provider",

@@ -1168,7 +1168,14 @@ type EmbeddingConfig struct {
 	// Empty string falls back to the engine default.
 	// OPENAI examples: text-embedding-3-small, text-embedding-3-large.
 	// GEMINI examples: text-embedding-004.
-	Model         string `protobuf:"bytes,2,opt,name=model,proto3" json:"model,omitempty"`
+	Model string `protobuf:"bytes,2,opt,name=model,proto3" json:"model,omitempty"`
+	// disabled turns off vector building and semantic retrieval without discarding the
+	// provider/model selection above, so it can be restored later. While disabled the
+	// indexer still stores chunk text (keyword/FTS search keeps working) but calls no
+	// embedding API; re-enabling triggers a full backfill of the missing vectors.
+	// Inverted (rather than an `enabled` flag) so the zero value preserves the
+	// pre-existing behaviour of embedding whenever a provider is configured.
+	Disabled      bool `protobuf:"varint,3,opt,name=disabled,proto3" json:"disabled,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1215,6 +1222,13 @@ func (x *EmbeddingConfig) GetModel() string {
 		return x.Model
 	}
 	return ""
+}
+
+func (x *EmbeddingConfig) GetDisabled() bool {
+	if x != nil {
+		return x.Disabled
+	}
+	return false
 }
 
 type AIProviderConfig struct {
@@ -1650,11 +1664,12 @@ const file_store_instance_setting_proto_rawDesc = "" +
 	"\rtranscription\x18\x02 \x01(\v2 .memos.store.TranscriptionConfigR\rtranscription\x12.\n" +
 	"\x13default_provider_id\x18\x03 \x01(\tR\x11defaultProviderId\x12&\n" +
 	"\x0fformat_pdf_text\x18\x04 \x01(\bR\rformatPdfText\x12:\n" +
-	"\tembedding\x18\x05 \x01(\v2\x1c.memos.store.EmbeddingConfigR\tembedding\"H\n" +
+	"\tembedding\x18\x05 \x01(\v2\x1c.memos.store.EmbeddingConfigR\tembedding\"d\n" +
 	"\x0fEmbeddingConfig\x12\x1f\n" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
 	"providerId\x12\x14\n" +
-	"\x05model\x18\x02 \x01(\tR\x05model\"\xd2\x01\n" +
+	"\x05model\x18\x02 \x01(\tR\x05model\x12\x1a\n" +
+	"\bdisabled\x18\x03 \x01(\bR\bdisabled\"\xd2\x01\n" +
 	"\x10AIProviderConfig\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12/\n" +

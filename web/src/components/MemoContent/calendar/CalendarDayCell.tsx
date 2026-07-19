@@ -1,22 +1,27 @@
 import type { CalendarDayCell as DayCellData } from "@/components/ActivityCalendar/types";
 import { cn } from "@/lib/utils";
+import { getEventColorByName } from "./eventColors";
 import type { CalendarItem } from "./parseCalendarBlock";
 
 interface CalendarDayCellProps {
   day: DayCellData;
   items: CalendarItem[];
+  dayEvents: string[]; // 当天发生的 event 名称（已去重、按预定义顺序）
+  events: string[]; // 预定义 event 列表，用于取色
   onClick?: (date: string) => void;
 }
 
 const MAX_PREVIEW_ITEMS = 2;
 
-export const CalendarDayCell = ({ day, items, onClick }: CalendarDayCellProps) => {
+export const CalendarDayCell = ({ day, items, dayEvents, events, onClick }: CalendarDayCellProps) => {
   if (!day.isCurrentMonth) {
     return <div className="aspect-square" aria-hidden="true" />;
   }
 
-  const hasItems = items.length > 0;
-  const previewItems = items.slice(0, MAX_PREVIEW_ITEMS);
+  const taskItems = items.filter((item) => !item.isEvent);
+  const hasTasks = taskItems.length > 0;
+  const previewItems = taskItems.slice(0, MAX_PREVIEW_ITEMS);
+  const hasEvents = dayEvents.length > 0;
   const isInteractive = Boolean(onClick);
 
   return (
@@ -39,7 +44,7 @@ export const CalendarDayCell = ({ day, items, onClick }: CalendarDayCellProps) =
         />
       )}
       <span className="self-end shrink-0 text-xs font-medium text-foreground md:text-sm">{day.label}</span>
-      {hasItems && (
+      {hasTasks && (
         <>
           <span className="mt-auto h-1 w-1 shrink-0 self-end rounded-full bg-primary/70 md:hidden" aria-hidden="true" />
           <div className="hidden md:flex md:flex-col md:gap-0.5 md:overflow-hidden md:text-left">
@@ -50,6 +55,18 @@ export const CalendarDayCell = ({ day, items, onClick }: CalendarDayCellProps) =
             ))}
           </div>
         </>
+      )}
+      {hasEvents && (
+        <div className={cn("hidden flex-wrap items-center gap-0.5 md:flex", hasTasks ? "md:mt-1" : "md:mt-auto")} aria-hidden="true">
+          {dayEvents.map((name) => (
+            <span
+              key={name}
+              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ backgroundColor: getEventColorByName(name, events) }}
+              title={name}
+            />
+          ))}
+        </div>
       )}
     </button>
   );

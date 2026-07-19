@@ -8,7 +8,7 @@ import { CalendarMonthGrid } from "./calendar/CalendarMonthGrid";
 import { CalendarUngroupedSection } from "./calendar/CalendarUngroupedSection";
 import { defaultVisibleMonth, type VisibleMonth } from "./calendar/defaultVisibleMonth";
 import { type CalendarItem, parseCalendarBlock } from "./calendar/parseCalendarBlock";
-import { toggleCalendarItem, upsertCalendarItem } from "./calendar/upsertCalendarItem";
+import { toggleCalendarEvent, toggleCalendarItem, upsertCalendarItem } from "./calendar/upsertCalendarItem";
 import { extractCodeContent } from "./utils";
 
 interface CalendarBlockProps {
@@ -19,10 +19,11 @@ interface CalendarBlockProps {
 export const CalendarBlock = ({ children }: CalendarBlockProps) => {
   const t = useTranslate();
   const codeContent = extractCodeContent(children);
-  const groups = useMemo(() => parseCalendarBlock(codeContent), [codeContent]);
+  const parsed = useMemo(() => parseCalendarBlock(codeContent), [codeContent]);
+  const { events, groups } = parsed;
 
   const datedGroups = useMemo(() => groups.filter((g) => g.date), [groups]);
-  const ungroupedItems = groups.find((g) => !g.date)?.items ?? [];
+  const ungroupedItems = (groups.find((g) => !g.date)?.items ?? []).filter((i) => !i.isEvent);
 
   const today = useTodayDate();
   const [visibleMonth, setVisibleMonth] = useState<VisibleMonth>(() => defaultVisibleMonth());
@@ -59,6 +60,19 @@ export const CalendarBlock = ({ children }: CalendarBlockProps) => {
     });
   };
 
+  const handleToggleEvent = (date: string, name: string, occurred: boolean) => {
+    if (!memo) return;
+    const newContent = toggleCalendarEvent(memo.content, date, name, occurred);
+    if (newContent === memo.content) return;
+    updateMemo({
+      update: {
+        name: memo.name,
+        content: newContent,
+      },
+      updateMask: ["content", "update_time"],
+    });
+  };
+
   const itemCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const group of datedGroups) {
@@ -74,6 +88,24 @@ export const CalendarBlock = ({ children }: CalendarBlockProps) => {
     }
     return map;
   }, [datedGroups]);
+
+  // 每个日期发生的 event 名称（去重、按预定义顺序），供日历格子底部打点用。
+  const eventsByDate = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const group of datedGroups) {
+      const names: string[] = [];
+      for (const item of group.items) {
+        if (item.isEvent && events.includes(item.text) && !names.includes(item.text)) {
+          names.push(item.text);
+        }
+      }
+      if (names.length > 0) {
+        names.sort((a, b) => events.indexOf(a) - events.indexOf(b));
+        map[group.date!] = names;
+      }
+    }
+    return map;
+  }, [datedGroups, events]);
 
   if (groups.length === 0) {
     return <div className="text-sm text-muted-foreground px-1 py-2">{t("markdown.calendar-block.empty")}</div>;
@@ -106,6 +138,8 @@ export const CalendarBlock = ({ children }: CalendarBlockProps) => {
             onMonthChange={handleMonthChange}
             itemCounts={itemCounts}
             itemsByDate={itemsByDate}
+            eventsByDate={eventsByDate}
+            events={events}
             selectedDate={selectedDate}
             onSelectDate={handleSelectDate}
           />
@@ -115,8 +149,10 @@ export const CalendarBlock = ({ children }: CalendarBlockProps) => {
             group={selectedGroup}
             selectedDate={effectiveDate}
             readonly={readonly}
+            events={events}
             onAddItems={memo ? handleAddItems : undefined}
             onToggleItem={memo ? handleToggleItem : undefined}
+            onToggleEvent={memo ? handleToggleEvent : undefined}
           />
         </div>
       </div>

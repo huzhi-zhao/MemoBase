@@ -45,7 +45,20 @@ const ContentChangeBridge = ({ onContentChange }: { onContentChange: (content: s
 
 const MemoEditorImpl = forwardRef<EditorController, MemoEditorProps>(
   (
-    { className, cacheKey, memo, parentMemoName, pdfAnnotation, autoFocus, placeholder, defaultCreateTime, onConfirm, onCancel, expand },
+    {
+      className,
+      cacheKey,
+      memo,
+      parentMemoName,
+      pdfAnnotation,
+      docAnchor,
+      autoFocus,
+      placeholder,
+      defaultCreateTime,
+      onConfirm,
+      onCancel,
+      expand,
+    },
     forwardedRef,
   ) => {
     const t = useTranslate();
@@ -283,7 +296,7 @@ const MemoEditorImpl = forwardRef<EditorController, MemoEditorProps>(
       dispatch(actions.setLoading("saving", true));
 
       try {
-        const result = await memoService.save(state, { memoName, parentMemoName, pdfAnnotation });
+        const result = await memoService.save(state, { memoName, parentMemoName, pdfAnnotation, docAnchor });
 
         if (!result.hasChanges) {
           toast.error(t("editor.no-changes-detected"));

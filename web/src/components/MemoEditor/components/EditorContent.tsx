@@ -11,6 +11,7 @@ import { uploadService } from "../services/uploadService";
 import { useEditorContext, useEditorSelector } from "../state";
 import type { EditorContentProps } from "../types";
 import type { EditorController } from "../types/editorController";
+import { AISelectionToolbar } from "./AISelectionToolbar";
 
 // Imported eagerly (not React.lazy): the editor is the always-present compose
 // box on the home route, which is already code-split — so deferring the
@@ -120,6 +121,7 @@ export const EditorContent = forwardRef<EditorController, EditorContentProps>(({
         onPaste={handlePaste}
         readOnly={isUploadingMedia}
       />
+      {!isUploadingMedia && <AISelectionToolbar editorRef={ref as React.RefObject<EditorController | null>} />}
       {isUploadingMedia && (
         <div className="absolute top-2 right-2 flex items-center gap-1.5 rounded-full bg-background/90 px-2 py-1 text-xs text-muted-foreground shadow-sm">
           <LoaderCircleIcon className="size-3.5 animate-spin" />

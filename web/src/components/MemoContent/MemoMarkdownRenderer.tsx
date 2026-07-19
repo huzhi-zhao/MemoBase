@@ -18,6 +18,7 @@ import { remarkDisableSetext } from "@/utils/remark-plugins/remark-disable-setex
 import { remarkHighlight } from "@/utils/remark-plugins/remark-highlight";
 import { remarkMention } from "@/utils/remark-plugins/remark-mention";
 import { remarkPreserveType } from "@/utils/remark-plugins/remark-preserve-type";
+import { remarkSheetsId } from "@/utils/remark-plugins/remark-sheets-id";
 import { remarkSplitMixedTaskLists } from "@/utils/remark-plugins/remark-split-mixed-task-lists";
 import { remarkTag } from "@/utils/remark-plugins/remark-tag";
 import { CodeBlock } from "./CodeBlock";
@@ -38,6 +39,8 @@ interface MemoMarkdownRendererProps {
   memoName?: string;
   /** Whether the memo is rendered as a collapsed feed card. */
   compact?: boolean;
+  /** Prefix for heading ids, to keep them unique across multi-snippet documents (e.g. gallery View blocks). */
+  headingIdPrefix?: string;
 }
 
 function getMentionUsername(node: Element, children?: React.ReactNode): string {
@@ -59,7 +62,13 @@ function getMentionUsername(node: Element, children?: React.ReactNode): string {
   return "";
 }
 
-export const MemoMarkdownRenderer = ({ content, resolvedMentionUsernames, memoName, compact }: MemoMarkdownRendererProps) => {
+export const MemoMarkdownRenderer = ({
+  content,
+  resolvedMentionUsernames,
+  memoName,
+  compact,
+  headingIdPrefix,
+}: MemoMarkdownRendererProps) => {
   // Split off any leading Obsidian-style frontmatter: compliant properties render
   // as a read-only panel above the body, and the raw `---` block never reaches
   // the markdown pipeline (where it would otherwise show as horizontal rules).
@@ -191,12 +200,13 @@ export const MemoMarkdownRenderer = ({ content, resolvedMentionUsernames, memoNa
           remarkTag,
           remarkHighlight,
           remarkAlert,
+          remarkSheetsId,
           remarkPreserveType,
         ]}
         rehypePlugins={[
           rehypeRaw,
           [rehypeSanitize, SANITIZE_SCHEMA],
-          rehypeHeadingId,
+          [rehypeHeadingId, { prefix: headingIdPrefix ?? "" }],
           [rehypeKatex, { throwOnError: false, strict: false }],
         ]}
         components={markdownComponents}

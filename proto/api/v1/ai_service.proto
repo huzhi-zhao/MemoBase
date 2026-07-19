@@ -27,6 +27,60 @@ service AIService {
     };
     option (google.api.method_signature) = "text";
   }
+
+  // PolishText rewrites a selected span of text using an instance AI provider,
+  // following a preset or custom instruction, and returns the rewritten text.
+  rpc PolishText(PolishTextRequest) returns (PolishTextResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/ai:polishText"
+      body: "*"
+    };
+    option (google.api.method_signature) = "text,instruction";
+  }
+
+  // GenerateFormula produces a spreadsheet formula from a natural-language prompt
+  // using an instance AI provider, returning only the formula string.
+  rpc GenerateFormula(GenerateFormulaRequest) returns (GenerateFormulaResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/ai:generateFormula"
+      body: "*"
+    };
+    option (google.api.method_signature) = "prompt";
+  }
+}
+
+message PolishTextRequest {
+  // Required. The selected text to rewrite.
+  string text = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // Optional. A custom instruction describing how to rewrite the text
+  // (e.g. "make it more formal", "cut the length in half"). When empty,
+  // the preset field is used.
+  string instruction = 2 [(google.api.field_behavior) = OPTIONAL];
+
+  // Optional. A named preset action, used when instruction is empty.
+  // One of: "polish", "concise", "expand", "grammar", "tone".
+  string preset = 3 [(google.api.field_behavior) = OPTIONAL];
+}
+
+message PolishTextResponse {
+  // The rewritten text.
+  string text = 1;
+}
+
+message GenerateFormulaRequest {
+  // Required. A natural-language description of the formula to generate
+  // (e.g. "sum the price column", "average of B2 to B10").
+  string prompt = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // Optional. Spreadsheet context to ground the formula, such as the active
+  // cell reference and the sheet's header row / sample rows.
+  string context = 2 [(google.api.field_behavior) = OPTIONAL];
+}
+
+message GenerateFormulaResponse {
+  // The generated formula, beginning with "=".
+  string formula = 1;
 }
 
 message FormatMarkdownRequest {

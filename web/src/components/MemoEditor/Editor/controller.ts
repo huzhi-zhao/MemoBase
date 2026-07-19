@@ -39,6 +39,29 @@ export function createController(view: EditorView, formatting: FormattingControl
       const to = index + search.length;
       view.dispatch({ changes: { from, to, insert: replacement }, selection: { anchor: from + replacement.length } });
     },
+    getSelection: () => {
+      const { from, to } = view.state.selection.main;
+      return { from, to, text: view.state.sliceDoc(from, to), empty: from === to };
+    },
+    getSelectionCoords: () => {
+      const { from, to } = view.state.selection.main;
+      if (from === to) return null;
+      const start = view.coordsAtPos(from);
+      const end = view.coordsAtPos(to, -1);
+      if (!start || !end) return null;
+      return {
+        left: Math.min(start.left, end.left),
+        right: Math.max(start.right, end.right),
+        top: Math.min(start.top, end.top),
+        bottom: Math.max(start.bottom, end.bottom),
+      };
+    },
+    replaceSelection: (replacement) => {
+      const { from, to } = view.state.selection.main;
+      if (from === to) return;
+      view.dispatch({ changes: { from, to, insert: replacement }, selection: { anchor: from + replacement.length } });
+      view.focus();
+    },
     scrollToCursor: () => view.dispatch({ effects: EditorView.scrollIntoView(view.state.selection.main.head) }),
     scrollToLine: (line) => {
       const clamped = Math.min(Math.max(line, 1), view.state.doc.lines);

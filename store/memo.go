@@ -123,6 +123,12 @@ type UpdateMemo struct {
 	FolderPath  *string
 	Title       *string
 	DocType     *string
+
+	// SkipReindex suppresses the search-index re-enqueue that an update normally
+	// triggers. Set it for updates that cannot change what gets indexed (chunks are
+	// built from Title + Content only), e.g. the startup payload rebuild. Without it
+	// every such write re-queues the memo and forces a full re-embedding run.
+	SkipReindex bool
 }
 
 type DeleteMemo struct {
@@ -172,8 +178,21 @@ func (s *Store) UpdateMemo(ctx context.Context, update *UpdateMemo) error {
 	if err := s.driver.UpdateMemo(ctx, update); err != nil {
 		return err
 	}
-	s.enqueueMemoIndex(ctx, update.ID, IndexJobReasonUpdated)
+	if !update.SkipReindex && updateAffectsIndex(update) {
+		s.enqueueMemoIndex(ctx, update.ID, IndexJobReasonUpdated)
+	}
 	return nil
+}
+
+// updateAffectsIndex reports whether an update touches fields the search index
+// depends on. Chunk text is built from Title+Content, chunk rows carry
+// WorkspaceID/FolderPath denormalized, and RowStatus/DocType gate indexability.
+// Everything else (pin, visibility, timestamps, payload such as node_overlays or
+// pdf_annotation) cannot change the index, so re-enqueuing would only burn
+// embedding quota.
+func updateAffectsIndex(u *UpdateMemo) bool {
+	return u.Content != nil || u.Title != nil || u.DocType != nil ||
+		u.RowStatus != nil || u.FolderPath != nil || u.WorkspaceID != nil
 }
 
 func (s *Store) DeleteMemo(ctx context.Context, delete *DeleteMemo) error {

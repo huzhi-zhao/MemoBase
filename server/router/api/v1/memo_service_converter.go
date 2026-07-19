@@ -61,6 +61,8 @@ func (s *APIV1Service) convertMemoFromStoreWithCreators(ctx context.Context, mem
 		memoMessage.Property = convertMemoPropertyFromStore(memo.Payload.Property)
 		memoMessage.Location = convertLocationFromStore(memo.Payload.Location)
 		memoMessage.PdfAnnotation = convertPdfAnnotationFromStore(memo.Payload.PdfAnnotation)
+		memoMessage.DocAnchor = convertDocAnchorFromStore(memo.Payload.DocAnchor)
+		memoMessage.NodeOverlays = memo.Payload.NodeOverlays
 	}
 
 	if memo.ParentUID != nil {
@@ -387,6 +389,26 @@ func convertPdfAnnotationToStore(annotation *v1pb.PdfAnnotation) *storepb.MemoPa
 		Width:          annotation.Width,
 		Height:         annotation.Height,
 		TextSnippet:    annotation.TextSnippet,
+	}
+}
+
+func convertDocAnchorFromStore(anchor *storepb.MemoPayload_DocAnchor) *v1pb.DocAnchor {
+	if anchor == nil {
+		return nil
+	}
+	return &v1pb.DocAnchor{
+		HeadingSlug: anchor.HeadingSlug,
+		HeadingText: anchor.HeadingText,
+	}
+}
+
+func convertDocAnchorToStore(anchor *v1pb.DocAnchor) *storepb.MemoPayload_DocAnchor {
+	if anchor == nil {
+		return nil
+	}
+	return &storepb.MemoPayload_DocAnchor{
+		HeadingSlug: anchor.HeadingSlug,
+		HeadingText: anchor.HeadingText,
 	}
 }
 

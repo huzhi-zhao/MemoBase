@@ -15,6 +15,10 @@ import (
 
 const embeddingTimeout = 2 * time.Minute
 
+// ErrRateLimited marks a provider 429 response. Callers should back off for a
+// rate-limit window instead of fast-retrying (which just burns more quota).
+var ErrRateLimited = errors.New("embedding provider rate limited")
+
 // DefaultOpenAIEmbeddingModel is the built-in OpenAI embedding model.
 const DefaultOpenAIEmbeddingModel = "text-embedding-3-small"
 
@@ -186,6 +190,9 @@ func doEmbeddingRequest(req *http.Request) ([]byte, error) {
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 32*1024*1024))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read response")
+	}
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return nil, errors.Wrapf(ErrRateLimited, "provider returned %s: %s", resp.Status, extractErrorMessage(respBody))
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, errors.Errorf("provider returned %s: %s", resp.Status, extractErrorMessage(respBody))

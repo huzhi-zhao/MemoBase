@@ -307,6 +307,10 @@ message InstanceSetting {
     // OPENAI examples: text-embedding-3-small, text-embedding-3-large.
     // GEMINI examples: text-embedding-004.
     string model = 2;
+    // disabled turns off vector building and semantic retrieval while keeping the
+    // provider/model selection above. Keyword (FTS) search is unaffected; re-enabling
+    // triggers a full backfill of the missing vectors.
+    bool disabled = 3;
   }
 
   // BackupSetting configures and reports the status of the weekly/manual SQLite-to-S3 database

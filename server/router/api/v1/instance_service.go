@@ -255,7 +255,13 @@ func (s *APIV1Service) UpdateInstanceSetting(ctx context.Context, request *v1pb.
 			return nil, status.Errorf(codes.InvalidArgument, "invalid AI setting: %v", err)
 		}
 		if prevAI, err := s.Store.GetInstanceAISetting(ctx); err == nil {
-			embeddingModelChanged = embeddingSignature(prevAI.GetEmbedding()) != embeddingSignature(updateSetting.GetAiSetting().GetEmbedding())
+			prev, next := prevAI.GetEmbedding(), updateSetting.GetAiSetting().GetEmbedding()
+			// Re-enabling embedding must backfill: memos created or edited while it was
+			// off have no vector. Memos untouched during that window keep theirs (the
+			// indexer carries them through a rebuild), so the backfill mostly re-uses
+			// what's already stored. Disabling needs no rebuild at all.
+			embeddingReenabled := prev.GetDisabled() && !next.GetDisabled()
+			embeddingModelChanged = embeddingSignature(prev) != embeddingSignature(next) || embeddingReenabled
 		}
 	case storepb.InstanceSettingKey_BACKUP:
 		// Only path_template is client-editable; last_backup_* is written exclusively by the
@@ -879,6 +885,7 @@ func convertEmbeddingConfigFromStore(setting *storepb.EmbeddingConfig) *v1pb.Ins
 	return &v1pb.InstanceSetting_EmbeddingConfig{
 		ProviderId: setting.GetProviderId(),
 		Model:      setting.GetModel(),
+		Disabled:   setting.GetDisabled(),
 	}
 }
 
@@ -889,6 +896,7 @@ func convertEmbeddingConfigToStore(setting *v1pb.InstanceSetting_EmbeddingConfig
 	return &storepb.EmbeddingConfig{
 		ProviderId: setting.GetProviderId(),
 		Model:      setting.GetModel(),
+		Disabled:   setting.GetDisabled(),
 	}
 }
 

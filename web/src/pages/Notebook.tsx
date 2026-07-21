@@ -58,6 +58,9 @@ function stripExtension(fileName: string): string {
   return fileName.replace(/\.(md|markdown|html|htm|pdf)$/i, "");
 }
 
+// URLs show the bare UID, not the `memos/{uid}` resource name used internally.
+const memoUid = (memoName: string) => memoName.replace(/^memos\//, "");
+
 const Notebook = () => {
   const t = useTranslate();
   const currentUser = useCurrentUser();
@@ -71,7 +74,9 @@ const Notebook = () => {
   const requestedWorkspace =
     (location.state as { workspace?: string } | null)?.workspace ??
     workspaces.find((w) => w.title.toLowerCase() === workspaceTitle?.toLowerCase())?.name;
-  const requestedMemo = docId ?? undefined;
+  // The URL carries the bare memo UID; older links carry the full `memos/{uid}`
+  // resource name (percent-encoded), so accept both.
+  const requestedMemo = docId ? (docId.startsWith("memos/") ? docId : `memos/${docId}`) : undefined;
 
   const [workspaceName, setWorkspaceName] = useState<string | undefined>(undefined);
   const [selectedMemo, setSelectedMemo] = useState<string | undefined>(undefined);
@@ -205,7 +210,7 @@ const Notebook = () => {
       setSelectedMemo(memoName);
       if (workspaceName) {
         const title = workspaces.find((w) => w.name === workspaceName)?.title ?? workspaceName;
-        navigate(`/${encodeURIComponent(title)}/${encodeURIComponent(memoName)}`, { replace: true });
+        navigate(`/${encodeURIComponent(title)}/${encodeURIComponent(memoUid(memoName))}`, { replace: true });
       }
     },
     [workspaceName, workspaces, navigate],
@@ -214,7 +219,9 @@ const Notebook = () => {
   const handleOpenInNewTab = useCallback(() => {
     if (!workspaceName) return;
     const title = workspaces.find((w) => w.name === workspaceName)?.title ?? workspaceName;
-    const path = selectedMemo ? `/${encodeURIComponent(title)}/${encodeURIComponent(selectedMemo)}` : `/${encodeURIComponent(title)}`;
+    const path = selectedMemo
+      ? `/${encodeURIComponent(title)}/${encodeURIComponent(memoUid(selectedMemo))}`
+      : `/${encodeURIComponent(title)}`;
     window.open(`${window.location.origin}${path}`, "_blank", "noopener,noreferrer");
   }, [workspaceName, selectedMemo, workspaces]);
 

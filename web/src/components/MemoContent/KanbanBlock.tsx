@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
-import { useMemoViewContextOptional } from "@/components/MemoView/MemoViewContext";
-import { useUpdateMemo } from "@/hooks/useMemoQueries";
 import { useTranslate } from "@/utils/i18n";
+import { useBlockSource } from "./BlockSourceContext";
 import { KanbanColumn } from "./kanban/KanbanColumn";
 import { KanbanTaskDetail } from "./kanban/KanbanTaskDetail";
 import { parseKanbanBlock } from "./kanban/parseKanbanBlock";
@@ -46,38 +45,32 @@ export const KanbanBlock = ({ children }: KanbanBlockProps) => {
   const data = useMemo(() => parseKanbanBlock(codeContent), [codeContent]);
   const [selectedIndex, setSelectedIndex] = useState<number | undefined>(undefined);
 
-  const memoViewContext = useMemoViewContextOptional();
-  const memo = memoViewContext?.memo;
-  const readonly = memoViewContext?.readonly ?? true;
-  const { mutate: updateMemo } = useUpdateMemo();
+  const blockSource = useBlockSource();
+  const readonly = blockSource?.readonly ?? true;
   // `view.lock: true` pins the board as view-only even when the document is
   // otherwise editable.
-  const interactive = !!memo && !readonly && !data.view.lock;
+  const interactive = !!blockSource && !readonly && !data.view.lock;
 
   // Selection is tracked by srcIndex so it survives re-parsing after a write.
   const selectedTask = useMemo(() => data.tasks.find((task) => task.srcIndex === selectedIndex), [data.tasks, selectedIndex]);
 
   const writeContent = (newContent: string) => {
-    if (!memo || newContent === memo.content) return;
-    updateMemo({
-      update: { name: memo.name, content: newContent },
-      updateMask: ["content", "update_time"],
-    });
+    blockSource?.save(newContent);
   };
 
   const handleToggleDone = (task: KanbanTask, done: boolean) => {
-    if (!memo) return;
-    writeContent(setTaskDone(memo.content, task.srcIndex, task.id, done));
+    if (!blockSource) return;
+    writeContent(setTaskDone(blockSource.source, task.srcIndex, task.id, done));
   };
 
   const handleMoveTask = (payload: { srcIndex: number; id?: string }, status: string) => {
-    if (!memo || status === UNGROUPED_KEY) return;
-    writeContent(setTaskStatus(memo.content, payload.srcIndex, payload.id, status));
+    if (!blockSource || status === UNGROUPED_KEY) return;
+    writeContent(setTaskStatus(blockSource.source, payload.srcIndex, payload.id, status));
   };
 
   const handleAddTask = (status: string, title: string) => {
-    if (!memo || status === UNGROUPED_KEY) return;
-    writeContent(addTask(memo.content, status, title));
+    if (!blockSource || status === UNGROUPED_KEY) return;
+    writeContent(addTask(blockSource.source, status, title));
   };
 
   const columns = useMemo(() => {

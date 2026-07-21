@@ -1,9 +1,8 @@
 import dayjs from "dayjs";
 import { useMemo, useState } from "react";
 import { useTodayDate } from "@/components/ActivityCalendar/hooks";
-import { useMemoViewContextOptional } from "@/components/MemoView/MemoViewContext";
-import { useUpdateMemo } from "@/hooks/useMemoQueries";
 import { useTranslate } from "@/utils/i18n";
+import { useBlockSource } from "./BlockSourceContext";
 import { CalendarDayDetail } from "./calendar/CalendarDayDetail";
 import { CalendarMonthGrid } from "./calendar/CalendarMonthGrid";
 import { CalendarUngroupedSection } from "./calendar/CalendarUngroupedSection";
@@ -30,10 +29,8 @@ export const CalendarBlock = ({ children }: CalendarBlockProps) => {
   const [visibleMonth, setVisibleMonth] = useState<VisibleMonth>(() => defaultVisibleMonth());
   const [selectedDate, setSelectedDate] = useState<string | undefined>(() => today);
 
-  const memoViewContext = useMemoViewContextOptional();
-  const memo = memoViewContext?.memo;
-  const readonly = memoViewContext?.readonly ?? true;
-  const { mutate: updateMemo } = useUpdateMemo();
+  const blockSource = useBlockSource();
+  const readonly = blockSource?.readonly ?? true;
 
   // allowMaxUpdateDays: N 时只允许改动最近 N 天（含今天）及未来的日期，
   // 避免误点历史格子导致旧记录被改写。
@@ -44,42 +41,18 @@ export const CalendarBlock = ({ children }: CalendarBlockProps) => {
   };
 
   const handleAddItems = (date: string, rawInput: string) => {
-    if (!memo || !isDateEditable(date)) return;
-    const newContent = upsertCalendarItem(memo.content, date, rawInput);
-    if (newContent === memo.content) return;
-    updateMemo({
-      update: {
-        name: memo.name,
-        content: newContent,
-      },
-      updateMask: ["content", "update_time"],
-    });
+    if (!blockSource || !isDateEditable(date)) return;
+    blockSource.save(upsertCalendarItem(blockSource.source, date, rawInput));
   };
 
   const handleSetItemStatus = (date: string, itemIndex: number, marker: string) => {
-    if (!memo || !isDateEditable(date)) return;
-    const newContent = setCalendarItemStatus(memo.content, date, itemIndex, marker);
-    if (newContent === memo.content) return;
-    updateMemo({
-      update: {
-        name: memo.name,
-        content: newContent,
-      },
-      updateMask: ["content", "update_time"],
-    });
+    if (!blockSource || !isDateEditable(date)) return;
+    blockSource.save(setCalendarItemStatus(blockSource.source, date, itemIndex, marker));
   };
 
   const handleToggleEvent = (date: string, name: string, occurred: boolean) => {
-    if (!memo || !isDateEditable(date)) return;
-    const newContent = toggleCalendarEvent(memo.content, date, name, occurred, events);
-    if (newContent === memo.content) return;
-    updateMemo({
-      update: {
-        name: memo.name,
-        content: newContent,
-      },
-      updateMask: ["content", "update_time"],
-    });
+    if (!blockSource || !isDateEditable(date)) return;
+    blockSource.save(toggleCalendarEvent(blockSource.source, date, name, occurred, events));
   };
 
   const itemCounts = useMemo(() => {
@@ -159,9 +132,9 @@ export const CalendarBlock = ({ children }: CalendarBlockProps) => {
             selectedDate={effectiveDate}
             readonly={readonly || !isDateEditable(effectiveDate)}
             events={events}
-            onAddItems={memo ? handleAddItems : undefined}
-            onSetItemStatus={memo ? handleSetItemStatus : undefined}
-            onToggleEvent={memo ? handleToggleEvent : undefined}
+            onAddItems={blockSource ? handleAddItems : undefined}
+            onSetItemStatus={blockSource ? handleSetItemStatus : undefined}
+            onToggleEvent={blockSource ? handleToggleEvent : undefined}
           />
         </div>
       </div>

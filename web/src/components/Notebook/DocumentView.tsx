@@ -511,7 +511,7 @@ const DocumentView = ({
           ) : isView ? (
             mode === "preview" ? (
               <div className="px-6 py-4">
-                <GalleryViewRenderer memo={memo} onOpenDoc={onOpenDocument} />
+                <GalleryViewRenderer memo={memo} onOpenDoc={onOpenDocument} readonly={false} />
                 {remainingAttachments.length > 0 && (
                   <div id={ATTACHMENTS_ANCHOR_ID} className="mt-6 border-t border-border pt-4">
                     <AttachmentListView attachments={remainingAttachments} />

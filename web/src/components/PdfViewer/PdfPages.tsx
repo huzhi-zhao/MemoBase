@@ -1,8 +1,7 @@
 import type * as PdfJs from "pdfjs-dist";
 import type { RefObject } from "react";
 import { cn } from "@/lib/utils";
-import type { PdfAnnotationRect } from "./PdfAnnotationLayer";
-import { PdfPageCanvas } from "./PdfPageCanvas";
+import { type PdfMarkStyle, PdfPageCanvas, type PdfSelectionPayload } from "./PdfPageCanvas";
 import type { PdfAnnotationEntry } from "./usePdfAnnotations";
 import type { PdfOrientation } from "./usePdfViewerState";
 
@@ -19,7 +18,14 @@ interface Props {
   selectedAnnotationMemoName?: string;
   annotateMode?: boolean;
   onAnnotationSelect?: (memoName: string) => void;
-  onAnnotationCreate?: (page: number, rect: PdfAnnotationRect, textSnippet: string) => void;
+  /** Create a bare mark on `page` from a text selection, with no note attached. */
+  onMarkCreate?: (page: number, selection: PdfSelectionPayload, style: PdfMarkStyle) => void;
+  /** Open the note composer for a selection on `page`. */
+  onNoteCreate?: (page: number, selection: PdfSelectionPayload) => void;
+  onMarkRestyle?: (memoName: string, style: PdfMarkStyle) => void;
+  onMarkClear?: (memoName: string) => void;
+  /** Write (or continue writing) the note carried by an existing mark. */
+  onMarkNote?: (memoName: string) => void;
   /** Page width/height in CSS px at scale=1, used to size not-yet-rendered pages so a
    *  scroll-to-page jump lands close to correct before the real canvas has measured in. */
   basePageWidth?: number;
@@ -42,7 +48,11 @@ export const PdfPages = ({
   selectedAnnotationMemoName,
   annotateMode,
   onAnnotationSelect,
-  onAnnotationCreate,
+  onMarkCreate,
+  onNoteCreate,
+  onMarkRestyle,
+  onMarkClear,
+  onMarkNote,
   basePageWidth,
   basePageHeight,
   onWrapperRef,
@@ -55,9 +65,11 @@ export const PdfPages = ({
     selectedAnnotationMemoName,
     annotateMode,
     onAnnotationSelect,
-    onAnnotationCreate: onAnnotationCreate
-      ? (rect: PdfAnnotationRect, textSnippet: string) => onAnnotationCreate(n, rect, textSnippet)
-      : undefined,
+    onMarkCreate: onMarkCreate ? (selection: PdfSelectionPayload, style: PdfMarkStyle) => onMarkCreate(n, selection, style) : undefined,
+    onNoteCreate: onNoteCreate ? (selection: PdfSelectionPayload) => onNoteCreate(n, selection) : undefined,
+    onMarkRestyle,
+    onMarkClear,
+    onMarkNote,
     estimatedWidth: basePageWidth ? basePageWidth * scale : undefined,
     estimatedHeight: basePageHeight ? basePageHeight * scale : undefined,
     onWrapperRef,

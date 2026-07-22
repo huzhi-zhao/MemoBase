@@ -1,16 +1,19 @@
 import { create } from "@bufbuild/protobuf";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { FieldMaskSchema } from "@bufbuild/protobuf/wkt";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import MemoEditor from "@/components/MemoEditor";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { memoServiceClient } from "@/connect";
 import { extractAttachmentUidFromName } from "@/helpers/resource-names";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
-import { PdfAnnotationSchema } from "@/types/proto/api/v1/memo_service_pb";
+import { MemoSchema, PdfAnnotationSchema } from "@/types/proto/api/v1/memo_service_pb";
 import { useTranslate } from "@/utils/i18n";
-import type { PdfAnnotationRect } from "./PdfAnnotationLayer";
+import { DEFAULT_MARK_COLOR } from "@/utils/markColors";
 import { PdfAnnotationSidebar } from "./PdfAnnotationSidebar";
+import type { PdfMarkStyle, PdfSelectionPayload } from "./PdfPageCanvas";
 import { PdfPages } from "./PdfPages";
 import { PdfTextSidebar } from "./PdfTextSidebar";
 import { PdfToolbar } from "./PdfToolbar";
@@ -62,13 +65,19 @@ export const PdfDocumentView = ({
   const isDesktop = useMediaQuery("lg");
   const [annotateMode, setAnnotateMode] = useState(true);
   const [selectedMemoName, setSelectedMemoName] = useState<string>();
-  const [pendingAnnotation, setPendingAnnotation] = useState<{ page: number; rect: PdfAnnotationRect; text: string }>();
+  const [pendingAnnotation, setPendingAnnotation] = useState<{ page: number; selection: PdfSelectionPayload }>();
+  // An existing bare mark whose note is being written for the first time (see `noteOnMark`).
+  const [editingMarkName, setEditingMarkName] = useState<string>();
   const [activePanel, setActivePanel] = useState<SidebarPanel>(null);
   // Bumped whenever a PDF page-number badge is clicked, telling the text panel to scroll to
   // that page. The nonce lets clicking the same page twice re-trigger the scroll.
   const [textScrollTarget, setTextScrollTarget] = useState<{ page: number; nonce: number }>();
   const canAnnotate = !!parentMemoName && !!attachmentName;
   const { byPage, all, refetch } = usePdfAnnotations(parentMemoName, attachmentName);
+  // Only annotations with something written in them belong in the panel; a bare mark is pure
+  // styling on the page's text and would otherwise show up as an empty card.
+  const notedAnnotations = useMemo(() => all.filter((entry) => entry.memo.content.trim()), [all]);
+  const editingMarkEntry = useMemo(() => all.find((entry) => entry.memo.name === editingMarkName), [all, editingMarkName]);
   const pageRefs = useRef(new Map<number, HTMLDivElement>());
   const defaultOpenedRef = useRef(false);
   // Docked-panel width in px. null keeps the CSS default (30% of the row); a drag on the
@@ -111,6 +120,97 @@ export const PdfDocumentView = ({
     else pageRefs.current.delete(page);
   }, []);
 
+  // Both anchors always ride along: the quote selector the mark is drawn from, and the
+  // normalized rect that keeps the annotation locatable if the text can't be resolved.
+  const buildAnnotation = useCallback(
+    (page: number, selection: PdfSelectionPayload, style: PdfMarkStyle) =>
+      create(PdfAnnotationSchema, {
+        attachmentName,
+        page,
+        x: selection.rect.x,
+        y: selection.rect.y,
+        width: selection.rect.width,
+        height: selection.rect.height,
+        textSnippet: selection.text,
+        textExact: selection.quote?.exact ?? "",
+        textPrefix: selection.quote?.prefix ?? "",
+        textSuffix: selection.quote?.suffix ?? "",
+        color: style.color,
+        underline: style.underline,
+      }),
+    [attachmentName],
+  );
+
+  // A bare mark: a comment with no written note, existing only to colour its text — the same
+  // shape the EPUB reader and the notebook document use. Adding a note later is a plain
+  // comment edit in the sidebar; the anchor and styling ride along untouched.
+  const createMark = useCallback(
+    async (page: number, selection: PdfSelectionPayload, style: PdfMarkStyle) => {
+      if (!parentMemoName || !attachmentName) return;
+      await memoServiceClient.createMemoComment({
+        name: parentMemoName,
+        comment: create(MemoSchema, { content: "", pdfAnnotation: buildAnnotation(page, selection, style) }),
+      });
+      refetch();
+    },
+    [parentMemoName, attachmentName, buildAnnotation, refetch],
+  );
+
+  // Restyle an existing mark, keeping its anchor and any note it carries.
+  const restyleMark = useCallback(
+    async (memoName: string, style: PdfMarkStyle) => {
+      const entry = all.find((a) => a.memo.name === memoName);
+      if (!entry?.memo.pdfAnnotation) return;
+      // Re-picking what the mark already has changes nothing — don't spend a round trip on it.
+      if (entry.color === style.color && entry.underline === style.underline) return;
+      await memoServiceClient.updateMemo({
+        memo: create(MemoSchema, {
+          name: memoName,
+          pdfAnnotation: { ...entry.memo.pdfAnnotation, color: style.color, underline: style.underline },
+        }),
+        updateMask: create(FieldMaskSchema, { paths: ["pdf_annotation"] }),
+      });
+      refetch();
+    },
+    [all, refetch],
+  );
+
+  // Clearing a mark that carries a note only drops its styling — the note is the valuable part
+  // and stays anchored to its text. A bare mark *is* only its styling, so clearing it removes
+  // the comment outright.
+  const clearMark = useCallback(
+    async (memoName: string) => {
+      const entry = all.find((a) => a.memo.name === memoName);
+      if (!entry) return;
+      setSelectedMemoName(undefined);
+      if (entry.memo.content.trim()) {
+        await restyleMark(memoName, { color: "", underline: false });
+        return;
+      }
+      await memoServiceClient.deleteMemo({ name: memoName });
+      refetch();
+    },
+    [all, restyleMark, refetch],
+  );
+
+  // The note button on an existing mark's toolbar. A mark that already carries a note is edited
+  // in its sidebar card, so just make sure the panel is open on it; a bare mark has no card at
+  // all (the panel filters empty comments out), so its note is composed in the same dialog a
+  // fresh selection uses — writing into the mark's own memo, keeping its anchor and colour.
+  const noteOnMark = useCallback(
+    (memoName: string) => {
+      const entry = all.find((a) => a.memo.name === memoName);
+      if (!entry) return;
+      setSelectedMemoName(memoName);
+      if (entry.memo.content.trim()) {
+        setActivePanel("annotations");
+        return;
+      }
+      setEditingMarkName(memoName);
+    },
+    [all],
+  );
+
   // Clicking a page-number badge on the PDF opens the plain-text panel (if not already open)
   // and scrolls it to that page's block.
   const handlePageNumberClick = useCallback((page: number) => {
@@ -123,10 +223,10 @@ export const PdfDocumentView = ({
   // Only does this once per mount (not every time `all` changes), so it doesn't fight
   // a reader who's deliberately closed the panel.
   useEffect(() => {
-    if (defaultOpenedRef.current || all.length === 0) return;
+    if (defaultOpenedRef.current || notedAnnotations.length === 0) return;
     defaultOpenedRef.current = true;
     setActivePanel("annotations");
-  }, [all.length]);
+  }, [notedAnnotations.length]);
 
   // Jumps to the page an annotation lives on. In paginated (horizontal) mode that means
   // flipping pages; in continuous scroll (vertical) mode it scrolls that page's wrapper
@@ -173,7 +273,7 @@ export const PdfDocumentView = ({
     ) : (
       <PdfAnnotationSidebar
         className={forDesktop ? undefined : "w-full max-w-full border-l-0 border-t-0"}
-        annotations={all}
+        annotations={notedAnnotations}
         selectedMemoName={selectedMemoName}
         onClose={forDesktop ? () => setActivePanel(null) : undefined}
         onEdited={refetch}
@@ -230,7 +330,11 @@ export const PdfDocumentView = ({
             setSelectedMemoName(memoName);
             setActivePanel("annotations");
           }}
-          onAnnotationCreate={canAnnotate ? (page, rect, text) => setPendingAnnotation({ page, rect, text }) : undefined}
+          onMarkCreate={canAnnotate ? createMark : undefined}
+          onNoteCreate={canAnnotate ? (page, selection) => setPendingAnnotation({ page, selection }) : undefined}
+          onMarkRestyle={canAnnotate ? restyleMark : undefined}
+          onMarkClear={canAnnotate ? clearMark : undefined}
+          onMarkNote={canAnnotate ? noteOnMark : undefined}
           basePageWidth={state.basePageWidth}
           basePageHeight={state.basePageHeight}
           onWrapperRef={registerPageRef}
@@ -267,6 +371,32 @@ export const PdfDocumentView = ({
           </SheetContent>
         </Sheet>
       )}
+      {editingMarkEntry && parentMemoName && (
+        <Dialog open onOpenChange={(open) => !open && setEditingMarkName(undefined)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t("pdf.add-annotation")}</DialogTitle>
+            </DialogHeader>
+            <blockquote className="border-l-2 border-border pl-3 text-sm text-muted-foreground line-clamp-4">
+              {editingMarkEntry.memo.pdfAnnotation?.textSnippet}
+            </blockquote>
+            <MemoEditor
+              autoFocus
+              // Editing the mark's own memo, so the annotation (anchor + colour) rides along
+              // untouched — only the content is being filled in.
+              memo={editingMarkEntry.memo}
+              parentMemoName={parentMemoName}
+              toolbarVariant="comment"
+              onConfirm={() => {
+                setEditingMarkName(undefined);
+                setActivePanel("annotations");
+                refetch();
+              }}
+              onCancel={() => setEditingMarkName(undefined)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
       {pendingAnnotation && parentMemoName && attachmentName && (
         <Dialog open onOpenChange={(open) => !open && setPendingAnnotation(undefined)}>
           <DialogContent>
@@ -274,19 +404,17 @@ export const PdfDocumentView = ({
               <DialogTitle>{t("pdf.add-annotation")}</DialogTitle>
             </DialogHeader>
             <blockquote className="border-l-2 border-border pl-3 text-sm text-muted-foreground line-clamp-4">
-              {pendingAnnotation.text}
+              {pendingAnnotation.selection.text}
             </blockquote>
             <MemoEditor
               autoFocus
               parentMemoName={parentMemoName}
-              pdfAnnotation={create(PdfAnnotationSchema, {
-                attachmentName,
-                page: pendingAnnotation.page,
-                x: pendingAnnotation.rect.x,
-                y: pendingAnnotation.rect.y,
-                width: pendingAnnotation.rect.width,
-                height: pendingAnnotation.rect.height,
-                textSnippet: pendingAnnotation.text,
+              // A note also marks its text, as a default-coloured highlight: writing about a
+              // passage and highlighting it are one act, not two. Only when the text could
+              // actually be anchored — a rect-only annotation has nothing to paint.
+              pdfAnnotation={buildAnnotation(pendingAnnotation.page, pendingAnnotation.selection, {
+                color: pendingAnnotation.selection.quote ? DEFAULT_MARK_COLOR : "",
+                underline: false,
               })}
               onConfirm={(memoName) => {
                 setPendingAnnotation(undefined);

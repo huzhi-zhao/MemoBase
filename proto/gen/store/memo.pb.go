@@ -271,7 +271,20 @@ type MemoPayload_PdfAnnotation struct {
 	Width  float64 `protobuf:"fixed64,5,opt,name=width,proto3" json:"width,omitempty"`
 	Height float64 `protobuf:"fixed64,6,opt,name=height,proto3" json:"height,omitempty"`
 	// Optional selected text snippet, used as a fallback anchor if the rect drifts.
-	TextSnippet   string `protobuf:"bytes,7,opt,name=text_snippet,json=textSnippet,proto3" json:"text_snippet,omitempty"`
+	TextSnippet string `protobuf:"bytes,7,opt,name=text_snippet,json=textSnippet,proto3" json:"text_snippet,omitempty"`
+	// The exact marked text from the page's rendered text layer. Empty means the
+	// annotation has no text-level anchor and draws from the rect alone (the only
+	// option for scanned PDFs, which have no selectable text). See the api/v1
+	// PdfAnnotation for why this mirrors DocAnchor's quote selector.
+	TextExact string `protobuf:"bytes,8,opt,name=text_exact,json=textExact,proto3" json:"text_exact,omitempty"`
+	// Bounded windows of rendered text surrounding `text_exact`, used to disambiguate
+	// a phrase that repeats on the same page.
+	TextPrefix string `protobuf:"bytes,9,opt,name=text_prefix,json=textPrefix,proto3" json:"text_prefix,omitempty"`
+	TextSuffix string `protobuf:"bytes,10,opt,name=text_suffix,json=textSuffix,proto3" json:"text_suffix,omitempty"`
+	// The mark's color preset key (e.g. "yellow"). Empty means no fill.
+	Color string `protobuf:"bytes,11,opt,name=color,proto3" json:"color,omitempty"`
+	// Render as an underline rather than a background highlight.
+	Underline     bool `protobuf:"varint,12,opt,name=underline,proto3" json:"underline,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -353,6 +366,41 @@ func (x *MemoPayload_PdfAnnotation) GetTextSnippet() string {
 		return x.TextSnippet
 	}
 	return ""
+}
+
+func (x *MemoPayload_PdfAnnotation) GetTextExact() string {
+	if x != nil {
+		return x.TextExact
+	}
+	return ""
+}
+
+func (x *MemoPayload_PdfAnnotation) GetTextPrefix() string {
+	if x != nil {
+		return x.TextPrefix
+	}
+	return ""
+}
+
+func (x *MemoPayload_PdfAnnotation) GetTextSuffix() string {
+	if x != nil {
+		return x.TextSuffix
+	}
+	return ""
+}
+
+func (x *MemoPayload_PdfAnnotation) GetColor() string {
+	if x != nil {
+		return x.Color
+	}
+	return ""
+}
+
+func (x *MemoPayload_PdfAnnotation) GetUnderline() bool {
+	if x != nil {
+		return x.Underline
+	}
+	return false
 }
 
 // Anchors a comment to a location inside a document memo's own content. The heading
@@ -545,7 +593,7 @@ var File_store_memo_proto protoreflect.FileDescriptor
 
 const file_store_memo_proto_rawDesc = "" +
 	"\n" +
-	"\x10store/memo.proto\x12\vmemos.store\"\x81\v\n" +
+	"\x10store/memo.proto\x12\vmemos.store\"\x96\f\n" +
 	"\vMemoPayload\x12=\n" +
 	"\bproperty\x18\x01 \x01(\v2!.memos.store.MemoPayload.PropertyR\bproperty\x12=\n" +
 	"\blocation\x18\x02 \x01(\v2!.memos.store.MemoPayload.LocationR\blocation\x12\x12\n" +
@@ -567,7 +615,7 @@ const file_store_memo_proto_rawDesc = "" +
 	"\bLocation\x12 \n" +
 	"\vplaceholder\x18\x01 \x01(\tR\vplaceholder\x12\x1a\n" +
 	"\blatitude\x18\x02 \x01(\x01R\blatitude\x12\x1c\n" +
-	"\tlongitude\x18\x03 \x01(\x01R\tlongitude\x1a\xb9\x01\n" +
+	"\tlongitude\x18\x03 \x01(\x01R\tlongitude\x1a\xce\x02\n" +
 	"\rPdfAnnotation\x12'\n" +
 	"\x0fattachment_name\x18\x01 \x01(\tR\x0eattachmentName\x12\x12\n" +
 	"\x04page\x18\x02 \x01(\x05R\x04page\x12\f\n" +
@@ -575,7 +623,16 @@ const file_store_memo_proto_rawDesc = "" +
 	"\x01y\x18\x04 \x01(\x01R\x01y\x12\x14\n" +
 	"\x05width\x18\x05 \x01(\x01R\x05width\x12\x16\n" +
 	"\x06height\x18\x06 \x01(\x01R\x06height\x12!\n" +
-	"\ftext_snippet\x18\a \x01(\tR\vtextSnippet\x1a\xe6\x01\n" +
+	"\ftext_snippet\x18\a \x01(\tR\vtextSnippet\x12\x1d\n" +
+	"\n" +
+	"text_exact\x18\b \x01(\tR\ttextExact\x12\x1f\n" +
+	"\vtext_prefix\x18\t \x01(\tR\n" +
+	"textPrefix\x12\x1f\n" +
+	"\vtext_suffix\x18\n" +
+	" \x01(\tR\n" +
+	"textSuffix\x12\x14\n" +
+	"\x05color\x18\v \x01(\tR\x05color\x12\x1c\n" +
+	"\tunderline\x18\f \x01(\bR\tunderline\x1a\xe6\x01\n" +
 	"\tDocAnchor\x12!\n" +
 	"\fheading_slug\x18\x01 \x01(\tR\vheadingSlug\x12!\n" +
 	"\fheading_text\x18\x02 \x01(\tR\vheadingText\x12\x1d\n" +

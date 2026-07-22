@@ -55,6 +55,19 @@ message MemoPayload {
     double height = 6;
     // Optional selected text snippet, used as a fallback anchor if the rect drifts.
     string text_snippet = 7;
+    // The exact marked text from the page's rendered text layer. Empty means the
+    // annotation has no text-level anchor and draws from the rect alone (the only
+    // option for scanned PDFs, which have no selectable text). See the api/v1
+    // PdfAnnotation for why this mirrors DocAnchor's quote selector.
+    string text_exact = 8;
+    // Bounded windows of rendered text surrounding `text_exact`, used to disambiguate
+    // a phrase that repeats on the same page.
+    string text_prefix = 9;
+    string text_suffix = 10;
+    // The mark's color preset key (e.g. "yellow"). Empty means no fill.
+    string color = 11;
+    // Render as an underline rather than a background highlight.
+    bool underline = 12;
   }
 
   // Anchors a comment to a location inside a document memo's own content. The heading

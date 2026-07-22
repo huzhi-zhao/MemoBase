@@ -375,6 +375,11 @@ func convertPdfAnnotationFromStore(annotation *storepb.MemoPayload_PdfAnnotation
 		Width:          annotation.Width,
 		Height:         annotation.Height,
 		TextSnippet:    annotation.TextSnippet,
+		TextExact:      annotation.TextExact,
+		TextPrefix:     annotation.TextPrefix,
+		TextSuffix:     annotation.TextSuffix,
+		Color:          annotation.Color,
+		Underline:      annotation.Underline,
 	}
 }
 
@@ -390,6 +395,11 @@ func convertPdfAnnotationToStore(annotation *v1pb.PdfAnnotation) *storepb.MemoPa
 		Width:          annotation.Width,
 		Height:         annotation.Height,
 		TextSnippet:    annotation.TextSnippet,
+		TextExact:      annotation.TextExact,
+		TextPrefix:     annotation.TextPrefix,
+		TextSuffix:     annotation.TextSuffix,
+		Color:          annotation.Color,
+		Underline:      annotation.Underline,
 	}
 }
 

@@ -1,8 +1,9 @@
-import { MessageSquarePlusIcon } from "lucide-react";
 import type * as PdfJs from "pdfjs-dist";
 import { AnnotationLayer, TextLayer } from "pdfjs-dist";
-import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type DocMark, DocMarkLayer } from "@/components/DocComments/DocMarkLayer";
+import { buildTextQuote, MARK_LAYER_ATTR, type TextQuote } from "@/components/DocComments/textAnchor";
+import { MARK_TOOLBAR_ATTR, MarkToolbar } from "@/components/MarkToolbar";
 import { cn } from "@/lib/utils";
 import { PdfAnnotationLayer, type PdfAnnotationRect } from "./PdfAnnotationLayer";
 import type { PdfAnnotationEntry } from "./usePdfAnnotations";
@@ -27,6 +28,26 @@ const linkService = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 } as any;
 
+/** How a mark looks: a background fill in `color` ("" = none) and/or an underline. */
+export interface PdfMarkStyle {
+  color: string;
+  underline: boolean;
+}
+
+/** A finished text selection on this page, in both anchoring forms. */
+export interface PdfSelectionPayload {
+  /** Normalized (0~1) bounding box of the selection, kept as the fallback anchor. */
+  rect: PdfAnnotationRect;
+  /** The selected text, shown as the note's quoted context. */
+  text: string;
+  /**
+   * The quote selector for the selection, which is what the mark is actually drawn from.
+   * Undefined only if the selection covered no walkable text — in practice unreachable,
+   * since a selection implies a text layer, but the rect anchor covers it either way.
+   */
+  quote?: TextQuote;
+}
+
 interface Props {
   doc: PdfJs.PDFDocumentProxy;
   pageNumber: number;
@@ -36,10 +57,20 @@ interface Props {
   className?: string;
   annotations?: PdfAnnotationEntry[];
   selectedAnnotationMemoName?: string;
-  /** When true, selecting text in this page's text layer surfaces an "add note" button. */
+  /** When true, selecting text in this page's text layer surfaces the mark toolbar, and
+   *  existing marks can be clicked to restyle them. */
   annotateMode?: boolean;
   onAnnotationSelect?: (memoName: string) => void;
-  onAnnotationCreate?: (rect: PdfAnnotationRect, textSnippet: string) => void;
+  /** Create a bare mark (no note) over the selection, straight from the toolbar. */
+  onMarkCreate?: (selection: PdfSelectionPayload, style: PdfMarkStyle) => void;
+  /** Open the note composer for the selection. */
+  onNoteCreate?: (selection: PdfSelectionPayload) => void;
+  /** Restyle an existing mark in place. */
+  onMarkRestyle?: (memoName: string, style: PdfMarkStyle) => void;
+  /** Remove an existing mark's styling (or the whole annotation, when it carries no note). */
+  onMarkClear?: (memoName: string) => void;
+  /** Write (or continue writing) the note carried by an existing mark. */
+  onMarkNote?: (memoName: string) => void;
   /** CSS px size to reserve before this page has actually rendered (see `lazy`), so
    *  jumping to an off-screen page can compute an accurate scroll target instead of
    *  landing on the browser's default zero/300x150 canvas box. Approximate is fine —
@@ -53,9 +84,9 @@ interface Props {
   onPageNumberClick?: (pageNumber: number) => void;
 }
 
-interface PendingSelection {
-  rect: PdfAnnotationRect;
-  text: string;
+/** A pending selection plus where to float its toolbar (wrapper-relative px). */
+interface PendingSelection extends PdfSelectionPayload {
+  point: { x: number; y: number };
 }
 
 export const PdfPageCanvas = ({
@@ -68,7 +99,11 @@ export const PdfPageCanvas = ({
   selectedAnnotationMemoName,
   annotateMode,
   onAnnotationSelect,
-  onAnnotationCreate,
+  onMarkCreate,
+  onNoteCreate,
+  onMarkRestyle,
+  onMarkClear,
+  onMarkNote,
   estimatedWidth,
   estimatedHeight,
   onWrapperRef,
@@ -81,6 +116,27 @@ export const PdfPageCanvas = ({
   const [shouldRender, setShouldRender] = useState(!lazy);
   const [rendered, setRendered] = useState(false);
   const [pendingSelection, setPendingSelection] = useState<PendingSelection | null>(null);
+  // The existing mark whose toolbar is open, plus where it was clicked. The clicked point is
+  // only a first guess: `markAnchors` replaces it once the layer has remeasured (a zoom or a
+  // sidebar resize reflows the text under the toolbar).
+  const [activeMark, setActiveMark] = useState<{ memoName: string; x: number; y: number } | null>(null);
+  const [markAnchors, setMarkAnchors] = useState<Record<string, { x: number; y: number }>>({});
+
+  // Annotations split by which anchor they can be drawn from. Text-anchored ones become marks
+  // painted over the words themselves; the rest keep the old box over the region they cover —
+  // the only thing possible for a scanned page, which has no text layer to anchor into.
+  const marks = useMemo<DocMark[]>(
+    () =>
+      (annotations ?? []).flatMap((entry) =>
+        entry.quote ? [{ memoName: entry.memo.name, quote: entry.quote, color: entry.color, underline: entry.underline }] : [],
+      ),
+    [annotations],
+  );
+  const rectAnnotations = useMemo(() => (annotations ?? []).filter((entry) => !entry.quote), [annotations]);
+  const activeMarkEntry = useMemo(
+    () => (annotations ?? []).find((entry) => entry.memo.name === activeMark?.memoName),
+    [annotations, activeMark],
+  );
 
   useEffect(() => {
     onWrapperRef?.(pageNumber, wrapperRef.current);
@@ -188,65 +244,119 @@ export const PdfPageCanvas = ({
     };
   }, [doc, pageNumber, scale, shouldRender]);
 
-  // Surfaces an "add note" button once the user finishes selecting text within this
-  // page's text layer, in annotate mode. The button's position/size (and the anchor
-  // rect passed to onAnnotationCreate) come from the selection Range's client rects,
-  // normalized against the page wrapper so they stay aligned across zoom/orientation.
+  // Leaving annotate mode packs away both toolbars.
   useEffect(() => {
-    if (!annotateMode) {
+    if (annotateMode) return;
+    setPendingSelection(null);
+    setActiveMark(null);
+  }, [annotateMode]);
+
+  const clearSelection = () => window.getSelection()?.removeAllRanges();
+
+  // On mouse-up in the page, if text was selected, capture it *now* (before focus moves to the
+  // toolbar and collapses it) in both anchoring forms — a quote selector over the text layer,
+  // which is what the mark is drawn from, plus a normalized bounding box as the fallback — and
+  // float the mark toolbar over the selection.
+  //
+  // This mirrors DocumentView's handler rather than listening for `selectionchange`, which
+  // fires continuously mid-drag and would have the toolbar chasing the cursor.
+  const handleMouseUp = (event: React.MouseEvent) => {
+    if (!annotateMode) return;
+    // A mouse-up on an existing mark is that mark's own click, and one inside the toolbar must
+    // not dismiss it before the click reaches the button being pressed (the toolbar prevents
+    // its mouse-down to keep the selection alive, but mouse-up still bubbles).
+    if (event.target instanceof Element && event.target.closest(`[${MARK_LAYER_ATTR}], [${MARK_TOOLBAR_ATTR}]`)) return;
+    const wrapper = wrapperRef.current;
+    const textLayerEl = textLayerRef.current;
+    const selection = window.getSelection();
+    if (!wrapper || !textLayerEl) return;
+    if (!selection || selection.isCollapsed || selection.rangeCount === 0 || !selection.toString().trim()) {
+      // A plain click on the page dismisses whatever the previous one opened.
+      setPendingSelection(null);
+      setActiveMark(null);
+      return;
+    }
+    const range = selection.getRangeAt(0);
+    if (!textLayerEl.contains(range.commonAncestorContainer)) {
       setPendingSelection(null);
       return;
     }
-    const handleSelectionChange = () => {
-      const selection = window.getSelection();
-      const wrapper = wrapperRef.current;
-      const textLayerEl = textLayerRef.current;
-      if (!selection || selection.isCollapsed || selection.rangeCount === 0 || !wrapper || !textLayerEl) {
-        setPendingSelection(null);
-        return;
-      }
-      const range = selection.getRangeAt(0);
-      if (!textLayerEl.contains(range.commonAncestorContainer)) {
-        setPendingSelection(null);
-        return;
-      }
-      const text = selection.toString().trim();
-      const rects = Array.from(range.getClientRects());
-      if (!text || rects.length === 0) {
-        setPendingSelection(null);
-        return;
-      }
-      const wrapperRect = wrapper.getBoundingClientRect();
-      if (wrapperRect.width === 0 || wrapperRect.height === 0) return;
-      const left = Math.min(...rects.map((r) => r.left));
-      const top = Math.min(...rects.map((r) => r.top));
-      const right = Math.max(...rects.map((r) => r.right));
-      const bottom = Math.max(...rects.map((r) => r.bottom));
-      setPendingSelection({
-        rect: {
-          x: (left - wrapperRect.left) / wrapperRect.width,
-          y: (top - wrapperRect.top) / wrapperRect.height,
-          width: (right - left) / wrapperRect.width,
-          height: (bottom - top) / wrapperRect.height,
-        },
-        text,
-      });
-    };
-    document.addEventListener("selectionchange", handleSelectionChange);
-    return () => document.removeEventListener("selectionchange", handleSelectionChange);
-  }, [annotateMode]);
+    const text = selection.toString().trim();
+    const rects = Array.from(range.getClientRects()).filter((r) => r.width > 0 && r.height > 0);
+    if (!text || rects.length === 0) {
+      setPendingSelection(null);
+      return;
+    }
+    const wrapperRect = wrapper.getBoundingClientRect();
+    if (wrapperRect.width === 0 || wrapperRect.height === 0) return;
+    const left = Math.min(...rects.map((r) => r.left));
+    const top = Math.min(...rects.map((r) => r.top));
+    const right = Math.max(...rects.map((r) => r.right));
+    const bottom = Math.max(...rects.map((r) => r.bottom));
+    setActiveMark(null);
+    setPendingSelection({
+      rect: {
+        x: (left - wrapperRect.left) / wrapperRect.width,
+        y: (top - wrapperRect.top) / wrapperRect.height,
+        width: (right - left) / wrapperRect.width,
+        height: (bottom - top) / wrapperRect.height,
+      },
+      text,
+      // Anchored against the text layer, not the wrapper: the wrapper also contains the canvas
+      // and the overlay layers, whose text (the page-number badge) is not page content.
+      quote: buildTextQuote(textLayerEl, range),
+      point: { x: (left + right) / 2 - wrapperRect.left, y: top - wrapperRect.top },
+    });
+  };
+
+  // Clicking a mark floats the toolbar over it, so it can be recoloured or erased in place —
+  // without this, a bare mark, which has no sidebar card of its own, could never be undone.
+  // A mark that carries a note also selects it, opening the sidebar on that note; a bare mark
+  // deliberately does not, since the panel filters bare marks out and would open on nothing.
+  const handleMarkClick = useCallback(
+    (memoName: string, point: { x: number; y: number }) => {
+      setPendingSelection(null);
+      setActiveMark({ memoName, ...point });
+      const entry = (annotations ?? []).find((a) => a.memo.name === memoName);
+      if (entry?.memo.content.trim()) onAnnotationSelect?.(memoName);
+    },
+    [annotations, onAnnotationSelect],
+  );
+
+  const applyToSelection = (style: PdfMarkStyle) => {
+    if (!pendingSelection) return;
+    const { point: _point, ...payload } = pendingSelection;
+    setPendingSelection(null);
+    // The toolbar deliberately keeps the selection alive while open; once the mark exists,
+    // drop it so the browser stops painting it over the new mark.
+    clearSelection();
+    onMarkCreate?.(payload, style);
+  };
 
   return (
     <div
       ref={wrapperRef}
       className={cn("relative", className)}
       style={!rendered && estimatedWidth && estimatedHeight ? { width: estimatedWidth, height: estimatedHeight } : undefined}
+      onMouseUp={handleMouseUp}
     >
       <canvas ref={canvasRef} className="dark:brightness-90 dark:invert-[0.93] dark:hue-rotate-180" />
       <div ref={textLayerRef} className="textLayer absolute top-0 left-0" />
       <div ref={annotationLayerRef} className="annotationLayer absolute top-0 left-0" />
-      {(annotations?.length || pendingSelection) && (
-        <PdfAnnotationLayer annotations={annotations ?? []} selectedMemoName={selectedAnnotationMemoName} onSelect={onAnnotationSelect} />
+      {/* Marks resolve against the text layer but are drawn as a sibling of it, not a child:
+          each re-render wipes the text layer with innerHTML="", which would take React's
+          nodes with it. The two elements share an origin and size, so the rects still line up. */}
+      <DocMarkLayer
+        containerRef={textLayerRef}
+        marks={marks}
+        // Re-measure once the text layer exists, and again whenever zooming rebuilds it.
+        contentKey={`${scale}:${rendered}`}
+        selectedMemoName={selectedAnnotationMemoName}
+        onMarkClick={annotateMode ? handleMarkClick : undefined}
+        onAnchors={setMarkAnchors}
+      />
+      {rectAnnotations.length > 0 && (
+        <PdfAnnotationLayer annotations={rectAnnotations} selectedMemoName={selectedAnnotationMemoName} onSelect={onAnnotationSelect} />
       )}
       {onPageNumberClick ? (
         <button
@@ -263,22 +373,50 @@ export const PdfPageCanvas = ({
         </div>
       )}
       {pendingSelection && (
-        <Button
-          size="sm"
-          className="absolute -translate-y-full shadow-md"
-          style={{ left: `${pendingSelection.rect.x * 100}%`, top: `${pendingSelection.rect.y * 100}%` }}
-          onMouseDown={(e) => {
-            // Prevent the button click from collapsing the selection before onClick fires.
-            e.preventDefault();
-          }}
-          onClick={() => {
-            onAnnotationCreate?.(pendingSelection.rect, pendingSelection.text);
-            window.getSelection()?.removeAllRanges();
+        <MarkToolbar
+          x={pendingSelection.point.x}
+          y={pendingSelection.point.y}
+          activeColorKey=""
+          activeUnderline={false}
+          onColor={(colorKey) => applyToSelection({ color: colorKey, underline: false })}
+          onUnderline={() => applyToSelection({ color: "", underline: true })}
+          onNote={() => {
+            const { point: _point, ...payload } = pendingSelection;
             setPendingSelection(null);
+            clearSelection();
+            onNoteCreate?.(payload);
           }}
-        >
-          <MessageSquarePlusIcon className="w-3.5 h-3.5" />
-        </Button>
+        />
+      )}
+      {activeMarkEntry && activeMark && (
+        <MarkToolbar
+          // The live anchor wins over the clicked point, which only covers the frame before the
+          // layer's first remeasure.
+          x={markAnchors[activeMark.memoName]?.x ?? activeMark.x}
+          y={markAnchors[activeMark.memoName]?.y ?? activeMark.y}
+          activeColorKey={activeMarkEntry.color}
+          activeUnderline={activeMarkEntry.underline}
+          // Re-picking the current colour is a no-op, not a toggle-off; erasing is the eraser's job.
+          onColor={(colorKey) => {
+            setActiveMark(null);
+            onMarkRestyle?.(activeMark.memoName, { color: colorKey, underline: activeMarkEntry.underline });
+          }}
+          onUnderline={() => {
+            setActiveMark(null);
+            onMarkRestyle?.(activeMark.memoName, { color: activeMarkEntry.color, underline: !activeMarkEntry.underline });
+          }}
+          // A bare mark has no sidebar card of its own (the panel filters empty comments out), so
+          // this must open a composer for it rather than assume the sidebar is already showing it —
+          // otherwise the note button on a freshly-highlighted passage looks dead.
+          onNote={() => {
+            setActiveMark(null);
+            onMarkNote?.(activeMark.memoName);
+          }}
+          onClear={() => {
+            setActiveMark(null);
+            onMarkClear?.(activeMark.memoName);
+          }}
+        />
       )}
     </div>
   );

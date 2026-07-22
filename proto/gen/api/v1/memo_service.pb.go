@@ -607,6 +607,16 @@ func (x *Location) GetLongitude() float64 {
 	return 0
 }
 
+// Anchors a comment to a location inside a PDF attachment. Two kinds of anchor
+// coexist, mirroring DocAnchor's two levels:
+//
+// The text_* fields pin an exact span of the page's rendered text layer, so the
+// comment draws as an in-text mark (highlight or underline) that follows the text
+// across zoom and page-fit changes. They are the preferred anchor and are set for
+// every mark made by selecting text.
+//
+// The normalized rect is the fallback, and the only anchor available for PDFs with
+// no text layer at all (scanned/image-only documents), where text cannot be selected.
 type PdfAnnotation struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The name of the attachment this annotation is anchored to.
@@ -614,13 +624,31 @@ type PdfAnnotation struct {
 	AttachmentName string `protobuf:"bytes,1,opt,name=attachment_name,json=attachmentName,proto3" json:"attachment_name,omitempty"`
 	// 1-based page number.
 	Page int32 `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
-	// Normalized (0~1) rect relative to the unrotated page dimensions.
+	// Normalized (0~1) rect relative to the unrotated page dimensions. Always set, so
+	// an annotation whose text anchor cannot be resolved still has somewhere to draw.
 	X      float64 `protobuf:"fixed64,3,opt,name=x,proto3" json:"x,omitempty"`
 	Y      float64 `protobuf:"fixed64,4,opt,name=y,proto3" json:"y,omitempty"`
 	Width  float64 `protobuf:"fixed64,5,opt,name=width,proto3" json:"width,omitempty"`
 	Height float64 `protobuf:"fixed64,6,opt,name=height,proto3" json:"height,omitempty"`
 	// Optional selected text snippet, used as a fallback anchor if the rect drifts.
-	TextSnippet   string `protobuf:"bytes,7,opt,name=text_snippet,json=textSnippet,proto3" json:"text_snippet,omitempty"`
+	TextSnippet string `protobuf:"bytes,7,opt,name=text_snippet,json=textSnippet,proto3" json:"text_snippet,omitempty"`
+	// The exact marked text, as it appeared in the page's rendered text layer. Empty
+	// means this annotation has no text-level anchor and draws from the rect alone.
+	TextExact string `protobuf:"bytes,8,opt,name=text_exact,json=textExact,proto3" json:"text_exact,omitempty"`
+	// The rendered text immediately before / after `text_exact` (a bounded window),
+	// used to pick the right occurrence when the same phrase repeats on the page.
+	//
+	// Unlike a document's markdown, a PDF's text never changes under the reader, so
+	// these are not needed to survive edits — they are reused verbatim from DocAnchor
+	// so both readers share one anchoring implementation.
+	TextPrefix string `protobuf:"bytes,9,opt,name=text_prefix,json=textPrefix,proto3" json:"text_prefix,omitempty"`
+	TextSuffix string `protobuf:"bytes,10,opt,name=text_suffix,json=textSuffix,proto3" json:"text_suffix,omitempty"`
+	// The mark's color, as a preset key (e.g. "yellow", "blue"). Empty means no fill
+	// (an underline-only mark).
+	Color string `protobuf:"bytes,11,opt,name=color,proto3" json:"color,omitempty"`
+	// When true the mark renders as an underline in `color`; otherwise as a background
+	// highlight. Ignored when `text_exact` is empty.
+	Underline     bool `protobuf:"varint,12,opt,name=underline,proto3" json:"underline,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -702,6 +730,41 @@ func (x *PdfAnnotation) GetTextSnippet() string {
 		return x.TextSnippet
 	}
 	return ""
+}
+
+func (x *PdfAnnotation) GetTextExact() string {
+	if x != nil {
+		return x.TextExact
+	}
+	return ""
+}
+
+func (x *PdfAnnotation) GetTextPrefix() string {
+	if x != nil {
+		return x.TextPrefix
+	}
+	return ""
+}
+
+func (x *PdfAnnotation) GetTextSuffix() string {
+	if x != nil {
+		return x.TextSuffix
+	}
+	return ""
+}
+
+func (x *PdfAnnotation) GetColor() string {
+	if x != nil {
+		return x.Color
+	}
+	return ""
+}
+
+func (x *PdfAnnotation) GetUnderline() bool {
+	if x != nil {
+		return x.Underline
+	}
+	return false
 }
 
 // Anchors a comment to a location inside a document memo's own content. Two levels
@@ -3186,7 +3249,7 @@ const file_api_v1_memo_service_proto_rawDesc = "" +
 	"\bLocation\x12%\n" +
 	"\vplaceholder\x18\x01 \x01(\tB\x03\xe0A\x01R\vplaceholder\x12\x1f\n" +
 	"\blatitude\x18\x02 \x01(\x01B\x03\xe0A\x01R\blatitude\x12!\n" +
-	"\tlongitude\x18\x03 \x01(\x01B\x03\xe0A\x01R\tlongitude\"\xdc\x01\n" +
+	"\tlongitude\x18\x03 \x01(\x01B\x03\xe0A\x01R\tlongitude\"\x8a\x03\n" +
 	"\rPdfAnnotation\x12,\n" +
 	"\x0fattachment_name\x18\x01 \x01(\tB\x03\xe0A\x02R\x0eattachmentName\x12\x17\n" +
 	"\x04page\x18\x02 \x01(\x05B\x03\xe0A\x02R\x04page\x12\x11\n" +
@@ -3194,7 +3257,16 @@ const file_api_v1_memo_service_proto_rawDesc = "" +
 	"\x01y\x18\x04 \x01(\x01B\x03\xe0A\x02R\x01y\x12\x19\n" +
 	"\x05width\x18\x05 \x01(\x01B\x03\xe0A\x02R\x05width\x12\x1b\n" +
 	"\x06height\x18\x06 \x01(\x01B\x03\xe0A\x02R\x06height\x12&\n" +
-	"\ftext_snippet\x18\a \x01(\tB\x03\xe0A\x01R\vtextSnippet\"\x89\x02\n" +
+	"\ftext_snippet\x18\a \x01(\tB\x03\xe0A\x01R\vtextSnippet\x12\"\n" +
+	"\n" +
+	"text_exact\x18\b \x01(\tB\x03\xe0A\x01R\ttextExact\x12$\n" +
+	"\vtext_prefix\x18\t \x01(\tB\x03\xe0A\x01R\n" +
+	"textPrefix\x12$\n" +
+	"\vtext_suffix\x18\n" +
+	" \x01(\tB\x03\xe0A\x01R\n" +
+	"textSuffix\x12\x19\n" +
+	"\x05color\x18\v \x01(\tB\x03\xe0A\x01R\x05color\x12!\n" +
+	"\tunderline\x18\f \x01(\bB\x03\xe0A\x01R\tunderline\"\x89\x02\n" +
 	"\tDocAnchor\x12&\n" +
 	"\fheading_slug\x18\x01 \x01(\tB\x03\xe0A\x01R\vheadingSlug\x12&\n" +
 	"\fheading_text\x18\x02 \x01(\tB\x03\xe0A\x01R\vheadingText\x12\"\n" +

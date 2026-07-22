@@ -4438,7 +4438,9 @@ components:
                     format: int32
                 x:
                     type: number
-                    description: Normalized (0~1) rect relative to the unrotated page dimensions.
+                    description: |-
+                        Normalized (0~1) rect relative to the unrotated page dimensions. Always set, so
+                         an annotation whose text anchor cannot be resolved still has somewhere to draw.
                     format: double
                 y:
                     type: number
@@ -4452,6 +4454,43 @@ components:
                 textSnippet:
                     type: string
                     description: Optional selected text snippet, used as a fallback anchor if the rect drifts.
+                textExact:
+                    type: string
+                    description: |-
+                        The exact marked text, as it appeared in the page's rendered text layer. Empty
+                         means this annotation has no text-level anchor and draws from the rect alone.
+                textPrefix:
+                    type: string
+                    description: |-
+                        The rendered text immediately before / after `text_exact` (a bounded window),
+                         used to pick the right occurrence when the same phrase repeats on the page.
+
+                         Unlike a document's markdown, a PDF's text never changes under the reader, so
+                         these are not needed to survive edits — they are reused verbatim from DocAnchor
+                         so both readers share one anchoring implementation.
+                textSuffix:
+                    type: string
+                color:
+                    type: string
+                    description: |-
+                        The mark's color, as a preset key (e.g. "yellow", "blue"). Empty means no fill
+                         (an underline-only mark).
+                underline:
+                    type: boolean
+                    description: |-
+                        When true the mark renders as an underline in `color`; otherwise as a background
+                         highlight. Ignored when `text_exact` is empty.
+            description: |-
+                Anchors a comment to a location inside a PDF attachment. Two kinds of anchor
+                 coexist, mirroring DocAnchor's two levels:
+
+                 The text_* fields pin an exact span of the page's rendered text layer, so the
+                 comment draws as an in-text mark (highlight or underline) that follows the text
+                 across zoom and page-fit changes. They are the preferred anchor and are set for
+                 every mark made by selecting text.
+
+                 The normalized rect is the fallback, and the only anchor available for PDFs with
+                 no text layer at all (scanned/image-only documents), where text cannot be selected.
         PersonalAccessToken:
             type: object
             properties:

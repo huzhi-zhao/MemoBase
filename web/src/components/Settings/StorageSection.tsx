@@ -168,6 +168,36 @@ const StorageSection = () => {
     setPendingStorageType(undefined);
   };
 
+  // Upload size limit: applies to non-media attachments regardless of active storage backend.
+  const [uploadSizeLimitDraft, setUploadSizeLimitDraft] = useState(String(originalSetting.uploadSizeLimitMb || ""));
+  useEffect(() => {
+    setUploadSizeLimitDraft(String(originalSetting.uploadSizeLimitMb || ""));
+  }, [originalSetting.uploadSizeLimitMb]);
+
+  const uploadSizeLimitValue = Number(uploadSizeLimitDraft);
+  const allowSaveUploadSizeLimit =
+    uploadSizeLimitDraft !== "" &&
+    Number.isInteger(uploadSizeLimitValue) &&
+    uploadSizeLimitValue > 0 &&
+    BigInt(uploadSizeLimitValue) !== originalSetting.uploadSizeLimitMb;
+
+  const saveUploadSizeLimit = async () => {
+    await saveInstanceSetting({
+      key: InstanceSetting_Key.STORAGE,
+      setting: create(InstanceSettingSchema, {
+        name: buildInstanceSettingName(InstanceSetting_Key.STORAGE),
+        value: {
+          case: "storageSetting",
+          value: create(InstanceSetting_StorageSettingSchema, {
+            ...originalSetting,
+            uploadSizeLimitMb: BigInt(uploadSizeLimitValue),
+          }),
+        },
+      }),
+      errorContext: "Update max upload size",
+    });
+  };
+
   // Database Backup: manual trigger for the weekly SQLite -> S3 backup job. Backend rejects this
   // outright for non-sqlite instances or when S3 isn't configured, surfaced via the toast below.
   const [backupRunning, setBackupRunning] = useState(false);
@@ -296,6 +326,21 @@ const StorageSection = () => {
               ))}
             </SelectContent>
           </Select>
+        </SettingRow>
+
+        <SettingRow label={t("setting.storage.max-upload-size")} description={t("setting.storage.max-upload-size-hint")}>
+          <div className="flex items-center gap-2">
+            <Input
+              className="w-32"
+              type="number"
+              min={1}
+              value={uploadSizeLimitDraft}
+              onChange={(e) => setUploadSizeLimitDraft(e.target.value)}
+            />
+            <Button variant="outline" disabled={!allowSaveUploadSizeLimit} onClick={saveUploadSizeLimit}>
+              {t("common.save")}
+            </Button>
+          </div>
         </SettingRow>
       </SettingGroup>
 

@@ -885,6 +885,8 @@
       "local-note-backup": "Persist and back up the attachment directory, especially in Docker or container deployments.",
       "local-note-path": "Relative paths are written under the instance profile data directory.",
       "local-storage-path": "Local storage path",
+      "max-upload-size": "Maximum upload size (MiB)",
+      "max-upload-size-hint": "Applies to non-media attachments. Recommended value is 100 MiB.",
       "path": "Storage Path",
       "path-description": "You can use the same dynamic variables from local storage, like {filename}",
       "path-placeholder": "custom/path",
